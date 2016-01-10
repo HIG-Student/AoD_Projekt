@@ -2,12 +2,9 @@ package se.hig.aod.projekt;
 
 import static org.junit.Assert.*;
 
-import org.junit.Before;
 import org.junit.Test;
 
 import se.hig.aod.projekt.Lisp.Part;
-import se.hig.aod.projekt.Lisp.PartLambda;
-import se.hig.aod.projekt.Lisp.PartValue;
 
 @SuppressWarnings("javadoc")
 public class TestLisp
@@ -17,13 +14,10 @@ public class TestLisp
         return new Lisp().run(code);
     }
 
-    /*
-     * + - * /
-     * 
-     * < > <= >= =
-     * 
-     * abs eq max min
-     */
+    public Part runLispAndReturnPart(String code)
+    {
+        return new Lisp().runAndReturnPart(code);
+    }
 
     @Test
     public void testAdd()
@@ -170,11 +164,6 @@ public class TestLisp
         assertEquals("Can't compare float", "false", runLisp("(= 80f 40f)"));
         assertEquals("Can't compare mix", "true", runLisp("(= 80 80f)"));
         assertEquals("Can't compare mix", "true", runLisp("(= 80f 80)"));
-
-        assertEquals("Can't compare string", "false", runLisp("(= \"hi\" \"yo\")"));
-        assertEquals("Can't compare string", "true", runLisp("(= \"hi\" \"hi\")"));
-        assertEquals("Can't compare multiple string", "true", runLisp("(= \"hi\" \"hi\" \"hi\" \"hi\")"));
-        assertEquals("Can't compare multiple string", "false", runLisp("(= \"hi\" \"hi\" \"yo\" \"hi\")"));
 
         assertEquals("Can't compare multiple int ", "true", runLisp("(= 80 80 80 80 80 80)"));
         assertEquals("Can't compare multiple int ", "false", runLisp("(= 80 80 80 80 40 80)"));

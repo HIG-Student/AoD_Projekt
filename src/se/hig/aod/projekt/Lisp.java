@@ -1,14 +1,27 @@
 package se.hig.aod.projekt;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
+//TODO: deffun
+//TODO: defstruct
+
+//TODO: cons
+//TODO: vector
+//TODO: array
+//TODO: cond
+
 /**
  * A class that do magic on lisp expressions <br>
  * <br>
- * Inspired by: http://norvig.com/lispy.html
+ * Inspired by: <a href="http://norvig.com/lispy.html">lispy</a> and <a href=
+ * "http://www.michaelnielsen.org/ddi/lisp-as-the-maxwells-equations-of-software/"
+ * >blog by Michael Nielsen</a>
  *
  * @author Viktor Hanstorp (ndi14vhp@student.hig.se)
  */
@@ -42,6 +55,24 @@ public class Lisp
         }
     }
 
+    class PartCons extends Part
+    {
+        Part car;
+        Part cdr;
+
+        PartCons(Part car, Part cdr)
+        {
+            this.car = car;
+            this.cdr = cdr;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "(" + car + " " + cdr + ")";
+        }
+    }
+
     class PartValue<T> extends Part
     {
         public final T value;
@@ -57,6 +88,35 @@ public class Lisp
         public String toString()
         {
             return value.toString();
+        }
+    }
+
+    class PartNumber extends PartValue<LispNumber>
+    {
+        public boolean isFloat()
+        {
+            return value.isfloat;
+        }
+
+        PartNumber(LispNumber value)
+        {
+            super(value);
+        }
+    }
+
+    class PartString extends PartValue<String>
+    {
+        PartString(String value)
+        {
+            super(value);
+        }
+    }
+
+    class PartBoolean extends PartValue<Boolean>
+    {
+        PartBoolean(Boolean value)
+        {
+            super(value);
         }
     }
 
@@ -76,11 +136,11 @@ public class Lisp
         }
     }
 
-    class PartLambda<P, R> extends Part
+    class PartLambda extends Part
     {
-        public final Lambda<P, R> value;
+        public final Lambda<Part, Part> value;
 
-        PartLambda(Lambda<P, R> value)
+        PartLambda(Lambda<Part, Part> value)
         {
             this.value = value;
         }
@@ -89,6 +149,177 @@ public class Lisp
         public String toString()
         {
             return "[lambda]";
+        }
+    }
+
+    /**
+     * Using BigDecimal<br>
+     * This allows users to have HUGE numbers and infinite precision for normal
+     * arithmetics<br>
+     * Note that using Math methods decreases the precision to the precision of
+     * 'double'
+     * 
+     * @author Viktor Hanstorp (ndi14vhp@student.hig.se)
+     */
+    class LispNumber implements Comparable<LispNumber>
+    {
+        private boolean isfloat;
+        private BigDecimal value;
+
+        LispNumber(BigDecimal value, boolean isfloat)
+        {
+            this.value = value;
+            this.isfloat = isfloat;
+        }
+
+        public LispNumber(String source)
+        {
+            try
+            {
+                value = new BigDecimal(Integer.parseInt(source));
+                isfloat = false;
+            }
+            catch (NumberFormatException notInt)
+            {
+                try
+                {
+                    value = new BigDecimal(Float.parseFloat(source));
+                    isfloat = true;
+                }
+                catch (NumberFormatException notFloat)
+                {
+                    try
+                    {
+                        value = new BigDecimal(source);
+                        isfloat = true;
+                    }
+                    catch (NumberFormatException notDecimal)
+                    {
+                        throw new NumberFormatException("[" + source + "] is not a number");
+                    }
+                }
+            }
+        }
+
+        public BigDecimal floatiness(LispNumber other)
+        {
+            if (isfloat)
+                return other.value.round(new MathContext(MathContext.UNLIMITED.getPrecision(), RoundingMode.DOWN));
+            else
+                return other.value;
+        }
+
+        public LispNumber add(LispNumber other)
+        {
+            return new LispNumber(value.add(floatiness(other)), isfloat || other.isfloat);
+        }
+
+        public LispNumber sub(LispNumber other)
+        {
+            return new LispNumber(value.subtract(floatiness(other)), isfloat || other.isfloat);
+        }
+
+        public LispNumber mul(LispNumber other)
+        {
+            return new LispNumber(value.multiply(floatiness(other)), isfloat || other.isfloat);
+        }
+
+        public LispNumber abs()
+        {
+            return new LispNumber(value.abs(), isfloat);
+        }
+
+        public LispNumber max(LispNumber other)
+        {
+            return new LispNumber(value.max(other.value), isfloat || other.isfloat);
+        }
+
+        public LispNumber min(LispNumber other)
+        {
+            return new LispNumber(value.min(other.value), isfloat || other.isfloat);
+        }
+
+        public LispNumber div(LispNumber other)
+        {
+            BigDecimal decimal = value.divide(floatiness(other));
+            boolean newIsFloat = isfloat || other.isfloat;
+
+            if (newIsFloat)
+                decimal = decimal.round(new MathContext(MathContext.UNLIMITED.getPrecision(), RoundingMode.DOWN));
+
+            return new LispNumber(decimal, newIsFloat);
+        }
+
+        public LispNumber sin()
+        {
+            return new LispNumber(new BigDecimal(Math.sin(value.doubleValue())), true);
+        }
+
+        public LispNumber cos()
+        {
+            return new LispNumber(new BigDecimal(Math.cos(value.doubleValue())), true);
+        }
+
+        public LispNumber tan()
+        {
+            return new LispNumber(new BigDecimal(Math.tan(value.doubleValue())), true);
+        }
+
+        public LispNumber asin()
+        {
+            return new LispNumber(new BigDecimal(Math.asin(value.doubleValue())), true);
+        }
+
+        public LispNumber acos()
+        {
+            return new LispNumber(new BigDecimal(Math.acos(value.doubleValue())), true);
+        }
+
+        public LispNumber atan()
+        {
+            return new LispNumber(new BigDecimal(Math.atan(value.doubleValue())), true);
+        }
+
+        public LispNumber atan2(LispNumber other)
+        {
+            return new LispNumber(new BigDecimal(Math.atan2(value.doubleValue(), other.value.doubleValue())), true);
+        }
+
+        public LispNumber ceil()
+        {
+            return new LispNumber(value.round(new MathContext(MathContext.UNLIMITED.getPrecision(), RoundingMode.CEILING)), true);
+        }
+
+        public LispNumber floor()
+        {
+            return new LispNumber(value.round(new MathContext(MathContext.UNLIMITED.getPrecision(), RoundingMode.FLOOR)), true);
+        }
+
+        public LispNumber round()
+        {
+            return new LispNumber(value.round(new MathContext(MathContext.UNLIMITED.getPrecision(), RoundingMode.HALF_UP)), true);
+        }
+
+        public LispNumber exp(LispNumber other)
+        {
+            return new LispNumber(new BigDecimal(Math.pow(value.doubleValue(), other.value.doubleValue())), true);
+        }
+
+        public LispNumber sqrt()
+        {
+            return new LispNumber(new BigDecimal(Math.sqrt(value.doubleValue())), true);
+        }
+
+        @Override
+        public int compareTo(LispNumber other)
+        {
+            return value.compareTo(other.value);
+        }
+
+        @Override
+        public String toString()
+        {
+            return value.toString() + ((isfloat && value.scale() == 0) ? ".0" : "");
         }
     }
 
@@ -123,10 +354,30 @@ public class Lisp
             return source.charAt(index);
         }
 
+        char peak(int pos)
+        {
+            if (getSize() == 0)
+                throw new StackEmpty("No more chars");
+
+            if (index + pos < 0 || index + pos >= source.length())
+                throw new OutOfBounds("Out of bounds");
+
+            return source.charAt(index + pos);
+        }
+
         @SuppressWarnings("serial")
         class StackEmpty extends LispException
         {
             public StackEmpty(String message)
+            {
+                super(message);
+            }
+        }
+
+        @SuppressWarnings("serial")
+        class OutOfBounds extends LispException
+        {
+            public OutOfBounds(String message)
             {
                 super(message);
             }
@@ -177,7 +428,12 @@ public class Lisp
 
     interface Lambda<P, R>
     {
-        public R exec(P... args);
+        public R exec(@SuppressWarnings("unchecked") P... args);
+    }
+
+    interface LambdaWithOneParameter<P, R>
+    {
+        public R exec(P arg);
     }
 
     interface LambdaWithTwoParameters<P, R>
@@ -195,68 +451,63 @@ public class Lisp
         boolean check(Part p);
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "rawtypes" })
     Environment global_enviroment = new Environment()
     {
-        Check isInt = (p) -> (p instanceof PartValue) && ((PartValue) p).classType.equals(Integer.class);
-        Check isFloat = (p) -> (p instanceof PartValue) && ((PartValue) p).classType.equals(Float.class);
-        Check isNumber = (p) -> (p instanceof PartValue) && Number.class.isAssignableFrom(((PartValue) p).classType);
+        Check isNumber = (p) -> p instanceof PartNumber;
         Check isAny = (p) -> true;
 
-        PartValue<Boolean> boolObjectOp(Part[] parts, LambdaWithTwoParameters<Object, Boolean> op)
+        PartValue<Boolean> boolNumberOp(Part[] parts, LambdaWithTwoParameters<LispNumber, Boolean> op)
         {
-            boolean result;
-            Object last;
-            result = op.exec(toObject(parts[0]), last = toObject(parts[1]));
-            for (int i = 2; i < parts.length; i++)
-                result = result && op.exec(last, last = toObject(parts[i]));
-            return new PartValue<Boolean>(result);
+            try
+            {
+                if (parts.length < 2)
+                    throw new IncorrectParameters();
+
+                boolean result;
+                LispNumber last;
+                result = op.exec(((PartNumber) parts[0]).value, last = ((PartNumber) parts[1]).value);
+                for (int i = 2; i < parts.length; i++)
+                    result = result && op.exec(last, last = ((PartNumber) parts[i]).value);
+                return new PartValue<Boolean>(result);
+            }
+            catch (IncorrectParameters | ClassCastException e)
+            {
+                throw new IncorrectParameters("num num [num...]");
+            }
         }
 
-        PartValue<Boolean> boolNumberOp(Part[] parts, LambdaWithTwoParameters<Float, Boolean> op)
+        PartValue<LispNumber> numOp(Part[] parts, LambdaWithTwoParameters<LispNumber, LispNumber> op)
         {
-            boolean result;
-            float last;
-            result = op.exec(toFloat(parts[0]), last = toFloat(parts[1]));
-            for (int i = 2; i < parts.length; i++)
-                result = result && op.exec(last, last = toFloat(parts[i]));
-            return new PartValue<Boolean>(result);
+            try
+            {
+                if (parts.length < 2)
+                    throw new IncorrectParameters();
+
+                LispNumber result;
+                result = op.exec(((PartNumber) parts[0]).value, ((PartNumber) parts[1]).value);
+                for (int i = 2; i < parts.length; i++)
+                    result = op.exec(result, ((PartNumber) parts[i]).value);
+                return new PartNumber(result);
+            }
+            catch (IncorrectParameters | ClassCastException e)
+            {
+                throw new IncorrectParameters("num num [num...]");
+            }
         }
 
-        PartValue<Integer> intOp(Part[] parts, LambdaWithTwoParameters<Integer, Integer> op)
+        PartValue<LispNumber> num(Part[] parts, LambdaWithOneParameter<LispNumber, LispNumber> op)
         {
-            Integer result;
-            result = op.exec(toInt(parts[0]), toInt(parts[1]));
-            for (int i = 2; i < parts.length; i++)
-                result = op.exec(result, toInt(parts[i]));
-            return new PartValue<Integer>(result);
-        }
-
-        PartValue<Float> numOp(Part[] parts, LambdaWithTwoParameters<Float, Float> op)
-        {
-            Float result;
-            result = op.exec(toFloat(parts[0]), toFloat(parts[1]));
-            for (int i = 2; i < parts.length; i++)
-                result = op.exec(result, toFloat(parts[i]));
-            return new PartValue<Float>(result);
-        }
-
-        boolean allIsInt(Part[] objs)
-        {
-            for (int i = 0; i < objs.length; i++)
-                if (!isInt.check(objs[i]))
-                    return false;
-
-            return true;
-        }
-
-        boolean allIsNumber(Part[] objs)
-        {
-            for (int i = 0; i < objs.length; i++)
-                if (!isNumber.check(objs[i]))
-                    return false;
-
-            return true;
+            try
+            {
+                if (parts.length != 1)
+                    throw new IncorrectParameters();
+                return new PartNumber(op.exec(((PartNumber) parts[0]).value));
+            }
+            catch (IncorrectParameters | ClassCastException e)
+            {
+                throw new IncorrectParameters("num");
+            }
         }
 
         boolean c(Part[] args, Check... checks)
@@ -278,42 +529,48 @@ public class Lisp
             return true;
         }
 
-        Float toFloat(Part v)
-        {
-            return ((Number) ((PartValue) v).value).floatValue();
-        }
-
-        Integer toInt(Part v)
-        {
-            return ((Number) ((PartValue) v).value).intValue();
-        }
-
-        Object toObject(Part v)
-        {
-            return ((PartValue) v).value;
-        }
-
         Part e()
         {
             throw new IncorrectParameters();
         }
 
+        void set(String key, Lambda<Part, Part> lambda)
         {
-            set("+", new PartLambda<Part, Part>((args) -> allIsInt(args) ? intOp(args, (a, b) -> a + b) : numOp(args, (a, b) -> a + b)));
-            set("-", new PartLambda<Part, Part>((args) -> allIsInt(args) ? intOp(args, (a, b) -> a - b) : numOp(args, (a, b) -> a - b)));
-            set("*", new PartLambda<Part, Part>((args) -> allIsInt(args) ? intOp(args, (a, b) -> a * b) : numOp(args, (a, b) -> a * b)));
-            set("/", new PartLambda<Part, Part>((args) -> allIsInt(args) ? intOp(args, (a, b) -> a / b) : numOp(args, (a, b) -> a / b)));
+            set(key, new PartLambda(lambda));
+        }
 
-            set(">", new PartLambda<Part, Part>((args) -> boolNumberOp(args, (a, b) -> a > b)));
-            set("<", new PartLambda<Part, Part>((args) -> boolNumberOp(args, (a, b) -> a < b)));
-            set(">=", new PartLambda<Part, Part>((args) -> boolNumberOp(args, (a, b) -> a >= b)));
-            set("<=", new PartLambda<Part, Part>((args) -> boolNumberOp(args, (a, b) -> a <= b)));
-            set("=", new PartLambda<Part, Part>((args) -> allIsNumber(args) ? boolNumberOp(args, (a, b) -> a.equals(b)) : boolObjectOp(args, (a, b) -> a.equals(b))));
+        {
+            set("+", (args) -> numOp(args, (a, b) -> a.add(b)));
+            set("-", (args) -> numOp(args, (a, b) -> a.sub(b)));
+            set("*", (args) -> numOp(args, (a, b) -> a.mul(b)));
+            set("/", (args) -> numOp(args, (a, b) -> a.div(b)));
 
-            set("abs", new PartLambda<Part, Part>((args) -> (fc(args, isNumber) && c(args, isInt)) ? new PartValue<Integer>((int) Math.abs(toInt(args[0]))) : new PartValue<Float>(Math.abs(toFloat(args[0])))));
-            set("eq", new PartLambda<Part, Part>((args) -> fc(args, isAny, isAny) ? new PartValue<Boolean>(args[0] == args[1]) : null));
-            set("max", new PartLambda<Part, Part>((args) -> allIsInt(args) ? intOp(args, (a, b) -> Math.max(a, b)) : numOp(args, (a, b) -> Math.max(a, b))));
-            set("min", new PartLambda<Part, Part>((args) -> allIsInt(args) ? intOp(args, (a, b) -> Math.min(a, b)) : numOp(args, (a, b) -> Math.min(a, b))));
+            set(">", (args) -> boolNumberOp(args, (a, b) -> a.compareTo(b) > 0));
+            set("<", (args) -> boolNumberOp(args, (a, b) -> a.compareTo(b) < 0));
+            set(">=", (args) -> boolNumberOp(args, (a, b) -> a.compareTo(b) >= 0));
+            set("<=", (args) -> boolNumberOp(args, (a, b) -> a.compareTo(b) <= 0));
+            set("=", (args) -> boolNumberOp(args, (a, b) -> a.compareTo(b) == 0));
+
+            set("eq", (args) -> fc(args, isAny, isAny) ? new PartValue<Boolean>(args[0] == args[1]) : null);
+
+            set("max", (args) -> numOp(args, (a, b) -> a.max(b)));
+            set("min", (args) -> numOp(args, (a, b) -> a.min(b)));
+
+            set("abs", (args) -> num(args, (a) -> a.abs()));
+            set("sin", (args) -> num(args, (a) -> a.sin()));
+            set("cos", (args) -> num(args, (a) -> a.cos()));
+            set("tan", (args) -> num(args, (a) -> a.tan()));
+            set("asin", (args) -> num(args, (a) -> a.asin()));
+            set("acos", (args) -> num(args, (a) -> a.acos()));
+            set("atan", (args) -> num(args, (a) -> a.atan()));
+            set("atan2", (args) -> fc(args, isAny, isAny) ? numOp(args, (a, b) -> a.atan2(b)) : null);
+
+            set("ceil", (args) -> num(args, (a) -> a.ceil()));
+            set("floor", (args) -> num(args, (a) -> a.floor()));
+            set("round", (args) -> num(args, (a) -> a.round()));
+            set("sqrt", (args) -> num(args, (a) -> a.sqrt()));
+
+            set("exp", (args) -> fc(args, isAny, isAny) ? numOp(args, (a, b) -> a.exp(b)) : null);
         }
     };
 
@@ -392,11 +649,6 @@ public class Lisp
         {
         }
 
-        // Comments
-        // TODO:
-        // http://stackoverflow.com/questions/6365334/lisp-commenting-convention
-        // multi-line comments: '#| ... |#' and '#|| ... ||#'
-
         if (character == ';')
         {
             while (!isStringBreak(character = stack.pop()))
@@ -405,6 +657,18 @@ public class Lisp
             while (isSpace(character))
             {
                 character = stack.pop();
+            }
+        }
+
+        if (character == '#' && stack.peak() == '|')
+        {
+            while ((character = stack.pop()) != '#')
+            {
+                if (stack.getSize() == 0)
+                    throw new SyntaxError("Unclosed comment!");
+
+                if (character == '#' && stack.peak(-1) == '|')
+                    break;
             }
         }
 
@@ -468,22 +732,15 @@ public class Lisp
                     String token = tokenBuilder.toString();
 
                     if (isString)
-                        return new PartValue<String>(token);
+                        return new PartString(token);
 
                     try
                     {
-                        return new PartValue<Integer>(Integer.parseInt(token));
+                        return new PartNumber(new LispNumber(token));
                     }
-                    catch (NumberFormatException intException)
+                    catch (NumberFormatException notNumber)
                     {
-                        try
-                        {
-                            return new PartValue<Float>(Float.parseFloat(token));
-                        }
-                        catch (NumberFormatException floatException)
-                        {
-                            return new PartSymbol(token);
-                        }
+                        return new PartSymbol(token);
                     }
                 }
     }
@@ -594,7 +851,7 @@ public class Lisp
 
                 Part[] parameters = ((Parts) parts[1]).parts;
 
-                return new PartLambda<Part, Part>((args) ->
+                return new PartLambda((args) ->
                 {
                     Environment local_env = new Environment(env);
                     for (int i = 0; i < parameters.length; i++)
@@ -652,76 +909,48 @@ public class Lisp
                 return new PartValue<Boolean>(p instanceof Parts && ((Parts) p).parts.length == 0);
             }
 
-            if (symbol.equals("atom"))
+            if (symbol.equals("typep"))
             {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " obj");
-                Part p = eval(parts[1], env);
-                return new PartValue<Boolean>(!(p instanceof Parts) || ((Parts) p).parts.length == 0);
-            }
+                if (parts.length != 3 || !(parts[2] instanceof PartSymbol))
+                    throw new SyntaxError(symbol + " obj type");
+                Part obj = eval(parts[1], env);
 
-            if (symbol.equals("consp"))
-            {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " obj");
-                Part p = eval(parts[1], env);
-                return new PartValue<Boolean>(p instanceof Parts && ((Parts) p).parts.length != 0);
-            }
+                boolean yes = false;
+                switch (((PartSymbol) parts[2]).value)
+                {
+                case "null":
+                    yes = obj instanceof Parts && ((Parts) obj).parts.length == 0;
+                    break;
+                case "atom":
+                    yes = !(obj instanceof Parts) || ((Parts) obj).parts.length == 0;
+                    break;
+                case "cons":
+                    yes = obj instanceof Parts && ((Parts) obj).parts.length != 0;
+                    break;
+                case "list":
+                    yes = obj instanceof Parts;
+                    break;
+                case "number":
+                    yes = obj instanceof PartNumber;
+                    break;
+                case "integer":
+                    yes = obj instanceof PartNumber && !((PartNumber) obj).isFloat();
+                    break;
+                case "float":
+                    yes = obj instanceof PartNumber && ((PartNumber) obj).isFloat();
+                    break;
+                case "string":
+                    yes = obj instanceof PartString;
+                    break;
+                case "function":
+                    yes = obj instanceof PartLambda;
+                    break;
+                case "symbol":
+                    yes = obj instanceof PartSymbol;
+                    break;
+                }
 
-            if (symbol.equals("listp"))
-            {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " obj");
-                Part p = eval(parts[1], env);
-                return new PartValue<Boolean>(p instanceof Parts);
-            }
-
-            if (symbol.equals("numberp"))
-            {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " obj");
-                Part p = eval(parts[1], env);
-                return new PartValue<Boolean>(p instanceof PartValue && Number.class.isAssignableFrom(((PartValue<?>) p).classType));
-            }
-
-            if (symbol.equals("integerp"))
-            {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " obj");
-                Part p = eval(parts[1], env);
-                return new PartValue<Boolean>(p instanceof PartValue && Integer.class.isAssignableFrom(((PartValue<?>) p).classType));
-            }
-
-            if (symbol.equals("floatp"))
-            {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " obj");
-                Part p = eval(parts[1], env);
-                return new PartValue<Boolean>(p instanceof PartValue && Float.class.isAssignableFrom(((PartValue<?>) p).classType));
-            }
-
-            if (symbol.equals("stringp"))
-            {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " obj");
-                Part p = eval(parts[1], env);
-                return new PartValue<Boolean>(p instanceof PartValue && String.class.isAssignableFrom(((PartValue<?>) p).classType));
-            }
-
-            if (symbol.equals("functionp"))
-            {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " obj");
-                Part p = eval(parts[1], env);
-                return new PartValue<Boolean>(p instanceof PartLambda);
-            }
-
-            if (symbol.equals("symbolp"))
-            {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " obj");
-                Part p = eval(parts[1], env);
-                return new PartValue<Boolean>(p instanceof PartSymbol);
+                return new PartValue<Boolean>(yes);
             }
         }
 
@@ -732,10 +961,16 @@ public class Lisp
         if (!(exps[0] instanceof PartLambda))
             throw new LispException("[" + parts[0] + "] is not a function");
 
+        Lambda<Part, Part> function = ((PartLambda) exps[0]).value;
         Part[] arguments = Arrays.copyOfRange(exps, 1, exps.length);
+
         try
         {
-            return (Part) ((PartLambda) exps[0]).value.exec(arguments);
+            return (Part) function.exec(arguments);
+        }
+        catch (IncorrectParameters e)
+        {
+            throw new IncorrectParameters("Incorrect parameters was sent to the method [" + parts[0] + "]: " + Arrays.deepToString(arguments) + "\nUsage: " + parts[0] + " " + e.getMessage());
         }
         catch (LispException | ClassCastException e)
         {
@@ -760,8 +995,19 @@ public class Lisp
         return eval(parse(code)).toString();
     }
 
+    Part runAndReturnPart(String code)
+    {
+        return eval(parse(code));
+    }
+
     public static void main(String[] args)
     {
+        BigDecimal d1 = new BigDecimal(new Integer(1));
+        BigDecimal d2 = new BigDecimal(new Float(1));
+
+        if (true)
+            return;
+
         Lisp lisp = new Lisp();
 
         System.out.println(lisp.run("(list)"));
@@ -783,15 +1029,15 @@ public class Lisp
 
         // PartFloat(5)));
 
-        if (true)
-            return;
-
-        Part root = lisp.parse("(defun queue-full-p (queue)\r\n" +
-                "  \"Return T if QUEUE is full.\"\r\n" +
-                "  (check-type queue queue)\r\n" +
-                "  (= (queue-get-ptr queue) \r\n" +
-                "     (queue-next queue (queue-put-ptr queue))))");
-
-        System.out.println(root);
+        /*
+         * if (true) return;
+         * 
+         * Part root = lisp.parse("(defun queue-full-p (queue)\r\n" +
+         * "  \"Return T if QUEUE is full.\"\r\n" +
+         * "  (check-type queue queue)\r\n" + "  (= (queue-get-ptr queue) \r\n"
+         * + "     (queue-next queue (queue-put-ptr queue))))");
+         * 
+         * System.out.println(root);
+         */
     }
 }

@@ -3,18 +3,26 @@ package se.hig.aod.projekt;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 
-//TODO: deffun
-//TODO: defstruct
+//Legend:
+//?: not started
+//>: currently working on
+//T: needs testing
+//!: done!
 
-//TODO: cons
-//TODO: vector
-//TODO: array
-//TODO: cond
+//TODO: ? deffun
+//TODO: ? defstruct
+//TODO: > cons
+//TODO: ? vector
+//TODO: ? array
+//TODO: ? cond
+//TODO: ? lambda asString()
 
 /**
  * A class that do magic on lisp expressions <br>
@@ -27,38 +35,40 @@ import java.util.List;
  */
 public class Lisp
 {
-    class Part
+    static abstract class Part
     {
-    }
-
-    class Parts extends Part
-    {
-        public final Part[] parts;
-
-        Parts(Part[] parts)
-        {
-            this.parts = parts;
-        }
-
-        Parts(Part head, Part[] parts)
-        {
-            this.parts = new Part[parts.length + 1];
-            this.parts[0] = head;
-            for (int i = 0; i < parts.length; i++)
-                this.parts[i + 1] = parts[i];
-        }
+        public abstract String asString();
 
         @Override
         public String toString()
         {
-            return Arrays.deepToString(parts);
+            return asString();
         }
     }
 
-    class PartCons extends Part
+    static final PartCons NIL = new PartCons()
+    {
+        @Override
+        public String asListString()
+        {
+            return "NIL";
+        }
+
+        @Override
+        public String asConsString()
+        {
+            return "NIL";
+        }
+    };
+
+    static class PartCons extends Part
     {
         Part car;
         Part cdr;
+
+        PartCons()
+        {
+        }
 
         PartCons(Part car, Part cdr)
         {
@@ -66,14 +76,90 @@ public class Lisp
             this.cdr = cdr;
         }
 
-        @Override
-        public String toString()
+        PartCons(Part[] list)
         {
-            return "(" + car + " " + cdr + ")";
+            car = list[0];
+            cdr = list.length > 1 ? new PartCons(Arrays.copyOfRange(list, 1, list.length)) : NIL;
+        }
+
+        PartCons(Part[] list, Part end_cdr)
+        {
+            car = list[0];
+            cdr = list.length > 1 ? new PartCons(Arrays.copyOfRange(list, 1, list.length), end_cdr) : end_cdr;
+        }
+
+        Part[] asArray()
+        {
+            if (equals(NIL))
+                return new Part[0];
+
+            List<Part> array = new ArrayList<Part>();
+            array.add(car != null ? car : NIL);
+
+            Part element = this;
+
+            while ((element = ((PartCons) element).cdr) instanceof PartCons && !((PartCons) element).equals(NIL))
+                array.add(((PartCons) element).car);
+
+            if (element instanceof PartAtom)
+                array.add(element);
+
+            return array.toArray(new Part[0]);
+        }
+
+        public String asConsString()
+        {
+            return "(" + car + " . " + cdr + ")";
+        }
+
+        public String asListString()
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("(");
+            Part element = this;
+            do
+            {
+                builder.append(((PartCons) element).car.asString());
+                builder.append(" ");
+            }
+            while ((element = ((PartCons) element).cdr) instanceof PartCons && !((PartCons) element).equals(NIL));
+
+            // element is atom or NIL
+
+            if (element.equals(NIL))
+                builder.deleteCharAt(builder.length() - 1);
+            else
+            {
+                builder.append(". ");
+                builder.append(element.asString());
+            }
+
+            builder.append(")");
+
+            return builder.toString();
+        }
+
+        @Override
+        public String asString()
+        {
+            return asListString();
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            return other instanceof PartCons && car == ((PartCons) other).car && cdr == ((PartCons) other).cdr;
         }
     }
 
-    class PartValue<T> extends Part
+    // any object that is not a cons
+    static abstract class PartAtom extends Part
+    {
+
+    }
+
+    static class PartValue<T> extends PartAtom
     {
         public final T value;
         public final Class<?> classType;
@@ -85,13 +171,13 @@ public class Lisp
         }
 
         @Override
-        public String toString()
+        public String asString()
         {
             return value.toString();
         }
     }
 
-    class PartNumber extends PartValue<LispNumber>
+    static class PartNumber extends PartValue<LispNumber>
     {
         public boolean isFloat()
         {
@@ -104,7 +190,7 @@ public class Lisp
         }
     }
 
-    class PartString extends PartValue<String>
+    static class PartString extends PartValue<String>
     {
         PartString(String value)
         {
@@ -112,7 +198,7 @@ public class Lisp
         }
     }
 
-    class PartBoolean extends PartValue<Boolean>
+    static class PartBoolean extends PartValue<Boolean>
     {
         PartBoolean(Boolean value)
         {
@@ -120,7 +206,7 @@ public class Lisp
         }
     }
 
-    class PartSymbol extends Part
+    static class PartSymbol extends PartAtom
     {
         public final String value;
 
@@ -130,13 +216,13 @@ public class Lisp
         }
 
         @Override
-        public String toString()
+        public String asString()
         {
             return value;
         }
     }
 
-    class PartLambda extends Part
+    static class PartLambda extends PartAtom
     {
         public final Lambda<Part, Part> value;
 
@@ -146,7 +232,7 @@ public class Lisp
         }
 
         @Override
-        public String toString()
+        public String asString()
         {
             return "[lambda]";
         }
@@ -161,7 +247,7 @@ public class Lisp
      * 
      * @author Viktor Hanstorp (ndi14vhp@student.hig.se)
      */
-    class LispNumber implements Comparable<LispNumber>
+    static class LispNumber implements Comparable<LispNumber>
     {
         private boolean isfloat;
         private BigDecimal value;
@@ -346,12 +432,17 @@ public class Lisp
             return source.charAt(index++);
         }
 
+        void unpop()
+        {
+            if (index == 0)
+                throw new OutOfBounds("No more chars");
+
+            index--;
+        }
+
         char peak()
         {
-            if (getSize() == 0)
-                throw new StackEmpty("No more chars");
-
-            return source.charAt(index);
+            return peak(0);
         }
 
         char peak(int pos)
@@ -363,6 +454,85 @@ public class Lisp
                 throw new OutOfBounds("Out of bounds");
 
             return source.charAt(index + pos);
+        }
+
+        boolean nextIs(char c)
+        {
+            if (getSize() == 0)
+                throw new StackEmpty("No more chars");
+
+            return peak() == c;
+        }
+
+        boolean nextIs(String s)
+        {
+            if (getSize() == 0)
+                throw new StackEmpty("No more chars");
+
+            if (getSize() < s.length())
+                return false;
+
+            for (int i = 0; i < s.length(); i++)
+                if (s.charAt(i) != peak(i + 1))
+                    return false;
+
+            return true;
+        }
+
+        boolean nextIsSpace()
+        {
+            return isSpace(peak());
+        }
+
+        boolean isSpace(char c)
+        {
+            return c == ' ' || c == '\n' || c == '\r' || c == '\t';
+        }
+
+        boolean isParseEnd(char c)
+        {
+            return c == ')' || isSpace(c);
+        }
+
+        boolean isStringBreak(char c)
+        {
+            return c == '\n' || c == '\r';
+        }
+
+        boolean clean()
+        {
+            char character = peak();
+            if (isSpace(character))
+            {
+                pop();
+                clean();
+                return true;
+            }
+
+            if (character == ';')
+            {
+                while (!isStringBreak(character = pop()))
+                {
+                }
+                clean();
+                return true;
+            }
+
+            if (character == '#' && peak(1) == '|')
+            {
+                while ((character = pop()) != '#')
+                {
+                    if (getSize() == 0)
+                        throw new SyntaxError("Unclosed multiline-comment!");
+
+                    if (character == '#' && peak(-1) == '|')
+                        break;
+                }
+                clean();
+                return true;
+            }
+
+            return false;
         }
 
         @SuppressWarnings("serial")
@@ -387,6 +557,7 @@ public class Lisp
     class Environment
     {
         Environment outer = null;
+        @SuppressWarnings("serial")
         HashMap<String, Part> env = new HashMap<String, Part>();
 
         public Environment()
@@ -571,6 +742,8 @@ public class Lisp
             set("sqrt", (args) -> num(args, (a) -> a.sqrt()));
 
             set("exp", (args) -> fc(args, isAny, isAny) ? numOp(args, (a, b) -> a.exp(b)) : null);
+
+            env.put("nil", NIL);
         }
     };
 
@@ -604,6 +777,10 @@ public class Lisp
         {
             super(message);
         }
+
+        SyntaxError()
+        {
+        }
     }
 
     /**
@@ -624,125 +801,122 @@ public class Lisp
         }
     }
 
-    private boolean isSpace(char c)
-    {
-        return c == ' ' || c == '\n' || c == '\r' || c == '\t';
-    }
-
-    private boolean isParseEnd(char c)
-    {
-        return c == ')' || isSpace(c);
-    }
-
-    private boolean isStringBreak(char c)
-    {
-        return c == '\n' || c == '\r';
-    }
-
     private Part break_to_parts(CharactersToParseStack stack)
     {
-        if (stack.getSize() == 0)
+        try
+        {
+            stack.clean();
+        }
+        catch (CharactersToParseStack.OutOfBounds | CharactersToParseStack.StackEmpty e)
+        {
             throw new SyntaxError("Unexpected ending; ')' expected");
-
-        char character;
-        while (isSpace(character = stack.pop()))
-        {
         }
 
-        if (character == ';')
-        {
-            while (!isStringBreak(character = stack.pop()))
-            {
-            }
-            while (isSpace(character))
-            {
-                character = stack.pop();
-            }
-        }
-
-        if (character == '#' && stack.peak() == '|')
-        {
-            while ((character = stack.pop()) != '#')
-            {
-                if (stack.getSize() == 0)
-                    throw new SyntaxError("Unclosed comment!");
-
-                if (character == '#' && stack.peak(-1) == '|')
-                    break;
-            }
-        }
+        char character = stack.pop();
 
         if (character == ')')
             throw new SyntaxError("Unexpected ')'");
-        else
-            if (character == '\'')
+
+        if (character == '\'')
+        {
+            return new PartCons(new PartSymbol("quote"), new PartCons(break_to_parts(stack), NIL));
+        }
+
+        if (character == '(')
+        {
+            stack.clean();
+
+            if (stack.nextIs(')'))
             {
-                return new Parts(new PartSymbol("quote"), new Part[] { break_to_parts(stack) });
+                stack.pop();
+                return NIL;
             }
-            else
 
-                if (character == '(')
+            List<Part> parts = new ArrayList<Part>();
+            parts.add(break_to_parts(stack));
+
+            do
+            {
+                stack.clean();
+                
+                if (stack.nextIs(')'))
                 {
-                    if (stack.peak() == ')')
+                    stack.pop();
+                    return new PartCons(parts.toArray(new Part[0]));
+                }
+                
+                if (stack.nextIs('.'))
+                {
+                    stack.pop();
+                    if (stack.nextIsSpace() || stack.nextIs('('))
+                    // cons: (1 . 2) or (1 .(2 3))
                     {
+                        Part cdr = break_to_parts(stack);
+                        stack.clean();
+                        if (!stack.nextIs(')'))
+                        {
+                            throw new SyntaxError("Invalid cons");
+                        }
                         stack.pop();
-                        return new Parts(new Part[0]);
+                        return new PartCons(parts.toArray(new Part[0]), cdr);
                     }
-
-                    List<Part> parts = new ArrayList<Part>();
-                    do
+                    else
+                    // atom: '.3' or '.b'
                     {
+                        stack.unpop();
                         parts.add(break_to_parts(stack));
-
-                        if (stack.pop() == ')')
-                            return new Parts(parts.toArray(new Part[0]));
                     }
-                    while (true);
                 }
                 else
+                    parts.add(break_to_parts(stack));
+            }
+            while (true);
+        }
+        else
+        {
+            // TODO:
+            // http://www.lispworks.com/documentation/HyperSpec/Body/02_dh.htm
+            // ,
+            // http://stackoverflow.com/questions/4873810/what-does-mean-in-lisp
+            // Parse '#...' syntax, ex: '#(1 2 3)'
+
+            StringBuilder tokenBuilder = new StringBuilder();
+            tokenBuilder.append(character);
+
+            char open = 0;
+            if (character == '"')
+                // ' is not string-quote, it is only '(quote exp)'
+                open = character;
+
+            boolean isString = open != 0;
+
+            // TODO: Allow escaped quotes " \" "
+
+            while (open != 0 || !stack.isParseEnd(stack.peak()))
+            {
+                tokenBuilder.append(stack.pop());
+
+                if (open != 0 && open == stack.peak())
                 {
-                    // TODO:
-                    // http://www.lispworks.com/documentation/HyperSpec/Body/02_dh.htm
-                    // ,
-                    // http://stackoverflow.com/questions/4873810/what-does-mean-in-lisp
-                    // Parse '#...' syntax, ex: '#(1 2 3)'
-
-                    StringBuilder tokenBuilder = new StringBuilder();
-                    tokenBuilder.append(character);
-
-                    char open = 0;
-                    if (character == '"' || character == '\'')
-                        open = character;
-
-                    boolean isString = open != 0;
-
-                    // TODO: Allow escaped quotes
-
-                    while (open != 0 || !isParseEnd(stack.peak()))
-                    {
-                        tokenBuilder.append(stack.pop());
-
-                        if (open != 0 && open == stack.peak())
-                        {
-                            tokenBuilder.append(stack.pop());
-                            break;
-                        }
-                    }
-
-                    String token = tokenBuilder.toString();
-
-                    if (isString)
-                        return new PartString(token);
-
-                    try
-                    {
-                        return new PartNumber(new LispNumber(token));
-                    }
-                    catch (NumberFormatException notNumber)
-                    {
-                        return new PartSymbol(token);
-                    }
+                    tokenBuilder.append(stack.pop());
+                    break;
                 }
+            }
+
+            String token = tokenBuilder.toString();
+
+            if (isString)
+                return new PartString(token);
+
+            try
+            {
+                return new PartNumber(new LispNumber(token));
+            }
+            catch (NumberFormatException notNumber)
+            {
+                return new PartSymbol(token);
+            }
+        }
     }
 
     private Part eval(Part part)
@@ -788,147 +962,217 @@ public class Lisp
             return env.get(((PartSymbol) part).value);
         }
 
-        if (!(part instanceof Parts)) // PartValue
+        if (!(part instanceof PartCons)) // PartAtom
         {
             return part;
         }
 
-        // Parts
-        Part[] parts = ((Parts) part).parts;
+        if (part.equals(NIL))
+            return NIL;
 
-        if (parts.length == 0)
-            return part;
+        Part[] parts = ((PartCons) part).asArray();
 
         if (parts[0] instanceof PartSymbol)
         {
             String symbol = ((PartSymbol) parts[0]).value;
+            Part[] args = parts.length == 0 ? new Part[0] : Arrays.copyOfRange(parts, 1, parts.length);
 
             if (symbol.equals("quote"))
             {
-                if (parts.length != 2)
+                if (args.length != 1)
                     throw new SyntaxError("Quote requires one and only one value");
-                return parts[1];
+                return args[0];
             }
 
             if (symbol.equals("if"))
             {
-                if (parts.length == 3 || parts.length == 4)
+                if (args.length == 2 || args.length == 3)
                 {
-                    Part test = eval(parts[1], env);
-                    if (test instanceof Parts && ((Parts) test).parts.length == 0)
+                    if (eval(args[0], env).equals(NIL)) // is_false
                     {
-                        if (parts.length == 4)
+                        if (args.length == 3) // else
                         {
-                            return eval(parts[3], env);
+                            return eval(args[2], env);
                         }
                     }
                     else
-                        return eval(parts[2], env);
+                        return eval(args[1], env);
                 }
                 else
                     throw new SyntaxError(symbol + " test then [else]");
             }
 
+            /*
+             * 
+             * setq {var form}
+             * 
+             * The special form (setq var1 form1 var2 form2 ...) is the ``simple
+             * variable assignment statement'' of Lisp. First form1 is evaluated
+             * and the result is stored in the variable var1, then form2 is
+             * evaluated and the result stored in var2, and so forth. The
+             * variables are represented as symbols, of course, and are
+             * interpreted as referring to static or dynamic instances according
+             * to the usual rules. Therefore setq may be used for assignment of
+             * both lexical and special variables.
+             * 
+             * setq returns the last value assigned, that is, the result of the
+             * evaluation of its last argument. As a boundary case, the form
+             * (setq) is legal and returns nil. There must be an even number of
+             * argument forms. For example, in
+             */
+
+            // TODO: ?
+            if (symbol.equals("setq"))
+            {
+                if (args.length % 2 != 0)
+                    throw new SyntaxError();
+
+                Part returns = NIL;
+                for (int i = 0; i < args.length; i += 2)
+                {
+                    if (!(args[i] instanceof PartSymbol))
+                        throw new SyntaxError(symbol + " {var form}*");
+
+                    returns = env.set(((PartSymbol) args[i]).value, eval(args[i + 1], env));
+                }
+
+                return returns;
+            }
+
             // TODO: ?
             if (symbol.equals("set") || symbol.equals("define"))
             {
-                if (parts.length != 3)
+                if (args.length != 2)
                     throw new SyntaxError(symbol + " requires two and only two values");
-                if (!(parts[1] instanceof PartSymbol))
+                if (!(args[0] instanceof PartSymbol))
                     throw new SyntaxError(symbol + " requires a symbol");
 
-                return env.set(((PartSymbol) parts[1]).value, eval(parts[2], env));
+                return env.set(((PartSymbol) args[0]).value, eval(args[1], env));
             }
 
             if (symbol.equals("lambda"))
             {
-                if (parts.length != 3 || !(parts[1] instanceof Parts))
+                if (args.length != 2 || !(args[0] instanceof PartCons))
                     throw new SyntaxError(symbol + " (var...) exp");
 
-                for (Part p : ((Parts) parts[1]).parts)
+                for (Part p : ((PartCons) args[0]).asArray())
                     if (!(p instanceof PartSymbol))
                         throw new SyntaxError("lambda requires symbols as parameters");
 
-                Part[] parameters = ((Parts) parts[1]).parts;
+                Part[] parameters = ((PartCons) args[0]).asArray();
 
-                return new PartLambda((args) ->
+                return new PartLambda((lambda_args) ->
                 {
                     Environment local_env = new Environment(env);
                     for (int i = 0; i < parameters.length; i++)
                     {
-                        local_env.set(((PartSymbol) parameters[i]).value, args.length > i ? eval(args[i], local_env) : new Parts(new Part[0]));
+                        local_env.set(((PartSymbol) parameters[i]).value, lambda_args.length > i ? eval(lambda_args[i], local_env) : NIL);
                     }
 
-                    return eval(parts[2], local_env);
+                    return eval(args[1], local_env);
                 });
+            }
+
+            if (symbol.equals("defun"))
+            {
+                if (args.length != 3 || !(args[0] instanceof PartSymbol) || !(args[1] instanceof PartCons))
+                    throw new SyntaxError(symbol + " name {symbol...} exp");
+
+                for (Part p : ((PartCons) args[1]).asArray())
+                    if (!(p instanceof PartSymbol))
+                        throw new SyntaxError("defun requires symbols as parameters");
+
+                Part[] parameters = ((PartCons) args[1]).asArray();
+
+                env.set(((PartSymbol) args[0]).value, new PartLambda((lambda_args) ->
+                {
+                    Environment local_env = new Environment(env);
+                    for (int i = 0; i < parameters.length; i++)
+                    {
+                        local_env.set(((PartSymbol) parameters[i]).value, lambda_args.length > i ? eval(lambda_args[i], local_env) : NIL);
+                    }
+
+                    return eval(args[1], local_env);
+                }));
+
+                return NIL; // Unsure
+            }
+
+            if (symbol.equals("progn"))
+            {
+                Part results = NIL;
+
+                for (Part arg : args)
+                    results = eval(arg, env);
+
+                return results;
             }
 
             if (symbol.equals("eval"))
             {
-                if (parts.length != 2)
+                if (args.length != 1)
                     throw new SyntaxError(symbol + " exp");
 
-                return eval(eval(parts[1], env), env);
+                return eval(eval(args[0], env), env);
             }
 
             if (symbol.equals("list"))
             {
-                Part[] entities = new Part[parts.length - 1];
-                for (int i = 1; i < parts.length; i++)
-                    entities[i - 1] = eval(parts[i], env);
-                return new Parts(entities);
+                Part[] entities = new Part[args.length];
+                for (int i = 0; i < args.length; i++)
+                    entities[i] = eval(args[i], env);
+                return entities.length == 0 ? NIL : new PartCons(entities);
+            }
+
+            if (symbol.equals("cons"))
+            {
+                if (args.length != 2)
+                    throw new SyntaxError(symbol + " exp");
+                return new PartCons(eval(args[0], env), eval(args[1], env));
             }
 
             if (symbol.equals("car"))
             {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " ([exp...])");
-                Part list = eval(parts[1], env);
-                if (!(list instanceof Parts))
-                    throw new SyntaxError(symbol + " ([exp...])");
+                if (args.length != 1)
+                    throw new SyntaxError(symbol + " cons");
+                Part list = eval(args[0], env);
+                if (!(list instanceof PartCons))
+                    throw new SyntaxError(symbol + " cons");
 
-                return ((Parts) list).parts.length == 0 ? new Parts(new Part[0]) : ((Parts) list).parts[0];
+                return ((PartCons) list).equals(NIL) ? NIL : ((PartCons) list).car;
             }
 
             if (symbol.equals("cdr"))
             {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " ([exp...])");
-                Part list = eval(parts[1], env);
-                if (!(list instanceof Parts))
-                    throw new SyntaxError(symbol + " ([exp...])");
+                if (args.length != 1)
+                    throw new SyntaxError(symbol + " cons");
+                Part list = eval(args[0], env);
+                if (!(list instanceof PartCons))
+                    throw new SyntaxError(symbol + " cons");
 
-                return ((Parts) list).parts.length == 0 ? new Parts(new Part[0]) : new Parts(Arrays.copyOfRange(((Parts) list).parts, 1, ((Parts) list).parts.length));
-            }
-
-            if (symbol.equals("null"))
-            {
-                if (parts.length != 2)
-                    throw new SyntaxError(symbol + " obj");
-                Part p = eval(parts[1], env);
-                return new PartValue<Boolean>(p instanceof Parts && ((Parts) p).parts.length == 0);
+                return ((PartCons) list).equals(NIL) ? NIL : ((PartCons) list).cdr;
             }
 
             if (symbol.equals("typep"))
             {
-                if (parts.length != 3 || !(parts[2] instanceof PartSymbol))
+                if (args.length != 2 || !(args[1] instanceof PartSymbol))
                     throw new SyntaxError(symbol + " obj type");
-                Part obj = eval(parts[1], env);
+                Part obj = eval(args[0], env);
 
                 boolean yes = false;
-                switch (((PartSymbol) parts[2]).value)
+                switch (((PartSymbol) args[1]).value)
                 {
                 case "null":
-                    yes = obj instanceof Parts && ((Parts) obj).parts.length == 0;
+                    yes = obj instanceof PartCons && ((PartCons) obj).equals(NIL);
                     break;
                 case "atom":
-                    yes = !(obj instanceof Parts) || ((Parts) obj).parts.length == 0;
+                    yes = !(obj instanceof PartCons) || ((PartCons) obj).equals(NIL);
                     break;
                 case "cons":
-                    yes = obj instanceof Parts && ((Parts) obj).parts.length != 0;
+                    yes = obj instanceof PartCons && !((PartCons) obj).equals(NIL);
                     break;
                 case "list":
-                    yes = obj instanceof Parts;
+                    yes = obj instanceof PartCons;
                     break;
                 case "number":
                     yes = obj instanceof PartNumber;
@@ -1002,16 +1246,12 @@ public class Lisp
 
     public static void main(String[] args)
     {
-        BigDecimal d1 = new BigDecimal(new Integer(1));
-        BigDecimal d2 = new BigDecimal(new Float(1));
-
-        if (true)
-            return;
-
         Lisp lisp = new Lisp();
 
-        System.out.println(lisp.run("(list)"));
-        System.out.println(lisp.run("(list (list 'a 'b) (list 'c 'd 'e))"));
+        System.out.println(lisp.run("'(+ 1 1)"));
+
+        System.out.println(lisp.run("(list 1 2)"));
+        System.out.println(lisp.run("(list (list 'a 'b) (list 'c 'd 'e) '(f . g))"));
 
         /*
          * System.out.println(lisp.run("(set a (lambda (a b c) (+ a b c)))"));

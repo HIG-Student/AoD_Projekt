@@ -240,16 +240,19 @@ public class TestLisp
     public void testList()
     {
         // https://www.cs.cmu.edu/Groups/AI/util/html/cltl/clm/node149.html
-        assertEquals("Incorrect empty list", "[]", runLisp("(list)"));
-        assertEquals("Incorrect list", "[[a, b], [c, d, e]]", runLisp("(list (list 'a 'b) (list 'c 'd 'e))"));
-        assertEquals("Incorrect car list", "[3, 4, a, b, 4]", runLisp("(list 3 4 'a (car '(b . c)) (+ 6 -2))"));
+        assertEquals("Incorrect empty list", "NIL", runLisp("(list)"));
+        assertEquals("Incorrect list", "((a b) (c d e))", runLisp("(list (list 'a 'b) (list 'c 'd 'e))"));
+        assertEquals("Incorrect car list", "(3 4 a b 4)", runLisp("(list 3 4 'a (car '(b . c)) (+ 6 -2))"));
+        
+        assertEquals("Incorrect car list", "(3 4 a b 4)", runLisp("(list 3 4 'a (car '(b . c)) (+ 6 -2))"));
+        assertEquals("Incorrect car list", "((a b) (c d e))", runLisp("(list (list 'a 'b) (list 'c 'd 'e))"));
     }
 
     @Test
     public void testCar()
     {
         // https://www.cs.cmu.edu/Groups/AI/util/html/cltl/clm/node148.html
-        assertEquals("Incorrect empty list", "[]", runLisp("(car ())"));
+        assertEquals("Incorrect empty list", "NIL", runLisp("(car ())"));
         assertEquals("Incorrect empty list", "a", runLisp("(car '(a b c))"));
     }
 
@@ -257,7 +260,41 @@ public class TestLisp
     public void testCdr()
     {
         // https://www.cs.cmu.edu/Groups/AI/util/html/cltl/clm/node148.html
-        assertEquals("Incorrect empty list", "[]", runLisp("(cdr ())"));
-        assertEquals("Incorrect list", "[b, c]", runLisp("(cdr '(a b c))"));
+        assertEquals("Incorrect empty list", "NIL", runLisp("(cdr ())"));
+        assertEquals("Incorrect list", "(b c)", runLisp("(cdr '(a b c))"));
     }
+    
+    @Test
+    public void testCons()
+    {
+        assertEquals("Incorrect cons", "b", runLisp("(car '(b . c))"));
+        assertEquals("Incorrect cons", "c", runLisp("(cdr '(b . c))"));
+        assertEquals("Incorrect cons", "(a b c . d)", runLisp("(cons 'a (cons 'b (cons 'c 'd)))"));
+    }
+    
+    @Test
+    public void testSetq()
+    {
+        assertEquals("Incorrect setq", "(6)", runLisp("(setq x (+ 3 2 1) y (cons x nil))"));
+    }
+    
+    @Test
+    public void testLambda()
+    {
+        assertEquals("Incorrect lambda", "19", runLisp("((lambda (a b) (+ a (* b 3))) 4 5)"));
+    }
+    
+    @Test
+    public void testDefun()
+    {
+        assertEquals("Incorrect defun", "19", runLisp("((lambda (a b) (+ a (* b 3))) 4 5)"));
+    }
+    
+    @Test
+    public void testProgn()
+    {
+        assertEquals("Incorrect progn", "6", runLisp("(progn (+ 1 1) (+ 2 2) (+ 3 3))"));
+    }
+    
+    // ((lambda (a b) (+ a (* b 3))) 4 5) => 19 
 }

@@ -1,6 +1,5 @@
 package se.hig.aod.projekt;
 
-
 class CharactersToParseStack
 {
     public final String source;
@@ -93,6 +92,9 @@ class CharactersToParseStack
 
     boolean clean()
     {
+        if (getSize() == 0)
+            return false;
+
         char character = peak();
         if (isSpace(character))
         {

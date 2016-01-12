@@ -5,7 +5,7 @@ import java.util.HashMap;
 class Environment
 {
     Environment outer = null;
-    HashMap<String, Part> env = new HashMap<String, Part>();
+    HashMap<String, PartContainer> env = new HashMap<String, PartContainer>();
 
     public Environment()
     {
@@ -17,7 +17,7 @@ class Environment
         this.outer = outer;
     }
 
-    public Part get(String key)
+    public PartContainer get(String key)
     {
         if (env.containsKey(key))
             return env.get(key);
@@ -28,7 +28,7 @@ class Environment
                 throw new NoSuchVariable("Variable [" + key + "] is null!");
     }
 
-    public Part set(String key, Part entry)
+    public PartContainer set(String key, PartContainer entry)
     {
         env.put(key, entry);
         return entry;

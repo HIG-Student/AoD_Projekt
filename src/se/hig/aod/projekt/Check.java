@@ -2,5 +2,5 @@ package se.hig.aod.projekt;
 
 interface Check
 {
-    boolean check(Part p);
+    boolean check(PartContainer p);
 }

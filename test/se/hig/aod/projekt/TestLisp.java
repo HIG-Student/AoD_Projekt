@@ -38,6 +38,13 @@ public class TestLisp
     }
 
     @Test
+    public void testMultiple()
+    {
+        assertEquals("Can't add int", "14", runLisp("(+ 4 6) (+ 5 6) (+ 6 6) (+ 7 6) (+ 8 6)"));
+        assertEquals("Can't add int", "5", runLisp("(setq foo 4) (+ foo 1)"));
+    }
+
+    @Test
     public void testAdd()
     {
         assertEquals("Can't add int", "10", runLisp("(+ 4 6)"));
@@ -283,6 +290,24 @@ public class TestLisp
     }
 
     @Test
+    public void testCadaddadr()
+    {
+        assertEquals("Incorrect empty list", "NIL", runLisp("(cadadadadadadaddr ())"));
+        assertEquals("Incorrect empty list", "NIL", runLisp("(cdadadadadadadar ())"));
+        assertEquals("Incorrect empty list", "NIL", runLisp("(cadr ())"));
+        assertEquals("Incorrect empty list", "NIL", runLisp("(cdar ())"));
+        assertEquals("Incorrect empty list", "NIL", runLisp("(caaar ())"));
+        assertEquals("Incorrect empty list", "NIL", runLisp("(cdddr ())"));
+
+        assertEquals("Incorrect list", "2", runLisp("(cadr '(1 2 3 4 5 6 7 8 9))"));
+        assertEquals("Incorrect list", "(5 6 7 8 9)", runLisp("(cddddr '(1 2 3 4 5 6 7 8 9))"));
+        assertEquals("Incorrect list", "5", runLisp("(caddddr '(1 2 3 4 5 6 7 8 9))"));
+        assertEquals("Incorrect list", "(7 8 9)", runLisp("(cddddddr '(1 2 3 4 5 6 7 8 9))"));
+        assertEquals("Incorrect list", "7", runLisp("(caddddddr '(1 2 3 4 5 6 7 8 9))"));
+        assertEquals("Incorrect list", "NIL", runLisp("(cddddddddddddddddr '(1 2 3 4 5 6 7 8 9))"));
+    }
+
+    @Test
     public void testCons()
     {
         assertEquals("incoeeect cons", "(a)", runLisp("(cons 'a '())"));
@@ -292,6 +317,7 @@ public class TestLisp
         assertEquals("Incorrect cons", "b", runLisp("(car (cons 'b 'c))"));
         assertEquals("Incorrect cons", "c", runLisp("(cdr '(b . c))"));
         assertEquals("Incorrect cons", "c", runLisp("(cdr (cons 'b 'c))"));
+        assertEquals("Incorrect cons", "(b . c)", runLisp("(cons 'b 'c)"));
         assertEquals("Incorrect cons", "(a b c . d)", runLisp("(cons 'a (cons 'b (cons 'c 'd)))"));
         assertEquals("Incorrect cons", "(a b c)", runLisp("(cons 'a (cons 'b (cons 'c nil)))"));
         assertEquals("Incorrect cons", "(1 2 3)", runLisp("(cons 1 '(2 3))"));
@@ -391,10 +417,10 @@ public class TestLisp
     {
         runLisp(lisp ->
         {
-            lisp.run("(setf foo (list 'a 'b 'c))");
-            lisp.run("(setf bar (cons 'x (cdr foo)))");
-            lisp.run("(setf (third foo) 'goose)");
-            assertEquals("Incorrect append", "(x b goose)", lisp.runAndReturnPart("bar").asString());
+            lisp.run("(setf foo (list 'a 'b 'c)) (setf bar (cons 'x (cdr foo))) (setf (third foo) 'goose) foo");
+
+            assertEquals("Incorrect append", "(a b goose)", lisp.run("foo"));
+            assertEquals("Incorrect append", "(x b goose)", lisp.run("bar"));
         });
 
         assertEquals("Incorrect append", "(1 2 3 4)", runLisp("(append '(1 2) '(3 4))"));

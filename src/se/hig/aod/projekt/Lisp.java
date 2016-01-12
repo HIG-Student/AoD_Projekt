@@ -16,7 +16,7 @@ import java.util.List;
 //TODO: ! cons
 //TODO: ? vector
 //TODO: ? array
-//TODO: ? cond
+//TODO: T cond
 //TODO: ? block
 //TODO: ? setf
 //TODO: ? caadadadadr
@@ -68,10 +68,10 @@ public class Lisp
 
     Environment global_enviroment = new Environment()
     {
-        Check isNumber = (p) -> p instanceof PartNumber;
+        Check isNumber = (p) -> p.getPart() instanceof PartNumber;
         Check isAny = (p) -> true;
 
-        Part boolNumberOp(Part[] parts, LambdaWithTwoParameters<LispNumber, Boolean> op)
+        PartContainer boolNumberOp(PartContainer[] parts, LambdaWithTwoParameters<LispNumber, Boolean> op)
         {
             try
             {
@@ -80,11 +80,11 @@ public class Lisp
 
                 boolean result;
                 LispNumber last;
-                result = op.exec(((PartNumber) parts[0]).value, last = ((PartNumber) parts[1]).value);
+                result = op.exec(((PartNumber) parts[0].getPart()).value, last = ((PartNumber) parts[1].getPart()).value);
                 for (int i = 2; i < parts.length; i++)
-                    result = result && op.exec(last, last = ((PartNumber) parts[i]).value);
+                    result = result && op.exec(last, last = ((PartNumber) parts[i].getPart()).value);
 
-                return result ? t : NIL;
+                return new PartContainer(result ? t : NIL);
             }
             catch (IncorrectParameters | ClassCastException e)
             {
@@ -92,7 +92,7 @@ public class Lisp
             }
         }
 
-        PartValue<LispNumber> numOp(Part[] parts, LambdaWithTwoParameters<LispNumber, LispNumber> op)
+        PartContainer numOp(PartContainer[] parts, LambdaWithTwoParameters<LispNumber, LispNumber> op)
         {
             try
             {
@@ -100,10 +100,11 @@ public class Lisp
                     throw new IncorrectParameters();
 
                 LispNumber result;
-                result = op.exec(((PartNumber) parts[0]).value, ((PartNumber) parts[1]).value);
+                result = op.exec(((PartNumber) parts[0].getPart()).value, ((PartNumber) parts[1].getPart()).value);
                 for (int i = 2; i < parts.length; i++)
-                    result = op.exec(result, ((PartNumber) parts[i]).value);
-                return new PartNumber(result);
+                    result = op.exec(result, ((PartNumber) parts[i].getPart()).value);
+
+                return new PartContainer(new PartNumber(result));
             }
             catch (IncorrectParameters | ClassCastException e)
             {
@@ -111,13 +112,13 @@ public class Lisp
             }
         }
 
-        PartValue<LispNumber> num(Part[] parts, LambdaWithOneParameter<LispNumber, LispNumber> op)
+        PartContainer num(PartContainer[] parts, LambdaWithOneParameter<LispNumber, LispNumber> op)
         {
             try
             {
                 if (parts.length != 1)
                     throw new IncorrectParameters();
-                return new PartNumber(op.exec(((PartNumber) parts[0]).value));
+                return new PartContainer(new PartNumber(op.exec(((PartNumber) parts[0].getPart()).value)));
             }
             catch (IncorrectParameters | ClassCastException e)
             {
@@ -125,7 +126,7 @@ public class Lisp
             }
         }
 
-        boolean c(Part[] args, Check... checks)
+        boolean c(PartContainer[] args, Check... checks)
         {
             if (args.length != checks.length)
                 return false;
@@ -137,21 +138,21 @@ public class Lisp
             return true;
         }
 
-        boolean fc(Part[] args, Check... checks)
+        boolean fc(PartContainer[] args, Check... checks)
         {
             if (!c(args, checks))
                 throw new IncorrectParameters();
             return true;
         }
 
-        Part e()
+        PartContainer e()
         {
             throw new IncorrectParameters();
         }
 
-        void set(String key, Lambda<Part, Part> lambda)
+        void set(String key, Lambda<PartContainer, PartContainer> lambda)
         {
-            set(key, new PartLambda(lambda));
+            set(key, new PartContainer(new PartLambda(lambda)));
         }
 
         {
@@ -166,7 +167,7 @@ public class Lisp
             set("<=", (args) -> boolNumberOp(args, (a, b) -> a.compareTo(b) <= 0));
             set("=", (args) -> boolNumberOp(args, (a, b) -> a.compareTo(b) == 0));
 
-            set("eq", (args) -> fc(args, isAny, isAny) ? (args[0] == args[1] ? t : NIL) : null);
+            set("eq", (args) -> fc(args, isAny, isAny) ? new PartContainer(args[0] == args[1] ? t : NIL) : null);
 
             set("max", (args) -> numOp(args, (a, b) -> a.max(b)));
             set("min", (args) -> numOp(args, (a, b) -> a.min(b)));
@@ -187,14 +188,14 @@ public class Lisp
 
             set("exp", (args) -> fc(args, isAny, isAny) ? numOp(args, (a, b) -> a.exp(b)) : null);
 
-            env.put("nil", NIL);
-            env.put("t", t);
-            env.put("pi", new PartNumber(Math.PI));
-            env.put("e", new PartNumber(Math.E));
+            env.put("nil", new PartContainer(NIL));
+            env.put("t", new PartContainer(t));
+            env.put("pi", new PartContainer(new PartNumber(Math.PI)));
+            env.put("e", new PartContainer(new PartNumber(Math.E)));
         }
     };
 
-    private Part break_to_parts(CharactersToParseStack stack)
+    private PartContainer break_to_parts(CharactersToParseStack stack)
     {
         try
         {
@@ -212,7 +213,7 @@ public class Lisp
 
         if (character == '\'')
         {
-            return new PartCons(new PartSymbol("quote"), new PartCons(break_to_parts(stack), NIL));
+            return new PartContainer(new PartCons(new PartContainer(new PartSymbol("quote")), new PartContainer(new PartCons(break_to_parts(stack), new PartContainer(NIL)))));
         }
 
         if (character == '(')
@@ -222,10 +223,10 @@ public class Lisp
             if (stack.nextIs(')'))
             {
                 stack.pop();
-                return NIL;
+                return new PartContainer(NIL);
             }
 
-            List<Part> parts = new ArrayList<Part>();
+            List<PartContainer> parts = new ArrayList<PartContainer>();
             parts.add(break_to_parts(stack));
 
             do
@@ -235,7 +236,7 @@ public class Lisp
                 if (stack.nextIs(')'))
                 {
                     stack.pop();
-                    return new PartCons(parts.toArray(new Part[0]));
+                    return new PartContainer(new PartCons(parts.toArray(new PartContainer[0])));
                 }
 
                 if (stack.nextIs('.'))
@@ -244,14 +245,14 @@ public class Lisp
                     if (stack.nextIsSpace() || stack.nextIs('('))
                     // cons: (1 . 2) or (1 .(2 3))
                     {
-                        Part cdr = break_to_parts(stack);
+                        PartContainer cdr = break_to_parts(stack);
                         stack.clean();
                         if (!stack.nextIs(')'))
                         {
                             throw new SyntaxError("Invalid cons");
                         }
                         stack.pop();
-                        return new PartCons(parts.toArray(new Part[0]), cdr);
+                        return new PartContainer(new PartCons(parts.toArray(new PartContainer[0]), cdr));
                     }
                     else
                     // atom: '.3' or '.b'
@@ -281,71 +282,60 @@ public class Lisp
                 open = character;
 
             boolean isString = open != 0;
+            boolean stringIsClosed = false;
 
-            while (open != 0 || !stack.isParseEnd(stack.peak()))
+            while (stack.getSize() != 0 && (open != 0 || !stack.isParseEnd(stack.peak())))
             {
                 tokenBuilder.append(stack.pop());
 
-                if (open != 0 && (open == stack.peak() && '\\' != stack.peak(-1))) // TODO:
-                                                                                   // case:
-                                                                                   // "foo\\"bar"
+                if (open != 0 && (open == stack.peak() && '\\' != stack.peak(-1)))
+                // TODO: case: "foo\\"bar"
                 {
                     tokenBuilder.append(stack.pop());
+                    stringIsClosed = true;
                     break;
                 }
             }
 
+            if (isString && !stringIsClosed)
+                throw new SyntaxError("Unescaped string!");
+
             String token = tokenBuilder.toString();
 
             if (isString)
-                return new PartString(token);
+                return new PartContainer(new PartString(token));
 
             try
             {
-                return new PartNumber(new LispNumber(token));
+                return new PartContainer(new PartNumber(new LispNumber(token)));
             }
             catch (NumberFormatException notNumber)
             {
-                return new PartSymbol(token);
+                return new PartContainer(new PartSymbol(token));
             }
         }
     }
 
-    private Part eval(Part part)
+    private PartContainer eval(PartContainer part)
     {
         return eval(part, global_enviroment);
     }
 
-    interface FunctionBody
-    {
-        Part run(Part[] args);
-    }
-
-    @SuppressWarnings("serial")
-    HashMap<String, FunctionBody> functions = new HashMap<String, FunctionBody>()
-    {
-        @SuppressWarnings("unchecked")
-        public <T> PartValue<T> is(Part part)
-        {
-            try
-            {
-                return (PartValue<T>) part;
-            }
-            catch (ClassCastException e)
-            {
-                throw new IncorrectParameters();
-            }
-        }
-
-        public void add(String name, FunctionBody body)
-        {
-            put(name, body);
-        }
-
-        {
-            add("quote", (args) -> is(args[0]));
-        }
-    };
+    /*
+     * interface FunctionBody { PartContainer run(Part[] args); }
+     * 
+     * 
+     * @SuppressWarnings("serial") HashMap<String, FunctionBody> functions = new
+     * HashMap<String, FunctionBody>() {
+     * 
+     * @SuppressWarnings("unchecked") public <T> PartValue<T> is(PartContainer
+     * part) { try { return (PartValue<T>) part; } catch (ClassCastException e)
+     * { throw new IncorrectParameters(); } }
+     * 
+     * public void add(String name, FunctionBody body) { put(name, body); }
+     * 
+     * { add("quote", (args) -> is(args[0])); } };
+     */
 
     @SuppressWarnings("serial")
     HashMap<String, Integer> nths = new HashMap<String, Integer>()
@@ -364,8 +354,10 @@ public class Lisp
         }
     };
 
-    private Part eval(Part part, Environment env)
+    private PartContainer eval(PartContainer container, Environment env)
     {
+        Part part = container.getPart();
+
         if (part instanceof PartSymbol)
         {
             return env.get(((PartSymbol) part).value);
@@ -373,24 +365,26 @@ public class Lisp
 
         if (!(part instanceof PartCons)) // PartAtom
         {
-            return part;
+            return container;
         }
 
         if (part.equals(NIL))
-            return NIL;
+            return container; // hmm?
 
-        Part[] parts = ((PartCons) part).asArray();
+        PartContainer[] container_parts = ((PartCons) part).asArray();
+        Part[] parts = PartContainer.asParts(container_parts);
 
         if (parts[0] instanceof PartSymbol)
         {
             String symbol = ((PartSymbol) parts[0]).value;
-            Part[] args = parts.length == 0 ? new Part[0] : Arrays.copyOfRange(parts, 1, parts.length);
+            PartContainer[] container_args = container_parts.length == 0 ? new PartContainer[0] : Arrays.copyOfRange(container_parts, 1, container_parts.length);
+            Part[] args = PartContainer.asParts(container_args);
 
             if (symbol.equals("quote"))
             {
                 if (args.length != 1)
                     throw new SyntaxError("Quote requires one and only one value");
-                return args[0];
+                return container_args[0];
             }
 
             if (symbol.equals("print"))
@@ -398,24 +392,24 @@ public class Lisp
                 if (args.length != 1)
                     throw new SyntaxError("Print requires one and only one value");
 
-                System.out.println(eval(args[0], env));
+                System.out.println(eval(container_args[0], env));
 
-                return args[0];
+                return container_args[0];
             }
 
             if (symbol.equals("if"))
             {
                 if (args.length == 2 || args.length == 3)
                 {
-                    if (eval(args[0], env).equals(NIL)) // is_false
+                    if (eval(container_args[0], env).getPart().equals(NIL)) // is_false
                     {
                         if (args.length == 3) // else
                         {
-                            return eval(args[2], env);
+                            return eval(container_args[2], env);
                         }
                     }
                     else
-                        return eval(args[1], env);
+                        return eval(container_args[1], env);
                 }
                 else
                     throw new SyntaxError(symbol + " test then [else]");
@@ -424,24 +418,24 @@ public class Lisp
             if (symbol.equals("cond"))
             {
                 if (args.length == 0)
-                    return NIL;
+                    return new PartContainer(NIL);
 
                 for (Part p : args)
                     if (!(p instanceof PartCons))
                         throw new SyntaxError("cond: arguments must be cons");
 
-                Part return_value = NIL;
+                PartContainer return_value = new PartContainer(NIL);
                 for (Part cond_case : args)
                 {
                     if (cond_case.equals(NIL))
                         continue;
 
-                    Part[] cond_case_parts = ((PartCons) cond_case).asArray();
+                    PartContainer[] cond_case_parts = ((PartCons) cond_case).asArray();
 
                     // (cond (quote a) ())
 
                     return_value = eval(cond_case_parts[0], env);
-                    if (!return_value.equals(NIL))
+                    if (!return_value.getPart().equals(NIL))
                     {
                         for (int i = 1; i < cond_case_parts.length; i++)
                             return_value = eval(cond_case_parts[i], env);
@@ -471,33 +465,60 @@ public class Lisp
              * argument forms. For example, in
              */
 
-            // TODO: ?
-            if (symbol.equals("setq"))
+            // TODO: define
+
+            if (symbol.equals("set"))
             {
                 if (args.length % 2 != 0)
                     throw new SyntaxError();
 
-                Part returns = NIL;
+                PartContainer returns = new PartContainer(NIL);
                 for (int i = 0; i < args.length; i += 2)
                 {
                     if (!(args[i] instanceof PartSymbol))
                         throw new SyntaxError(symbol + " {var form}*");
 
-                    returns = env.set(((PartSymbol) args[i]).value, eval(args[i + 1], env));
+                    returns = env.set(((PartSymbol) eval((container_args[i]), env).getPart()).value, eval(container_args[i + 1], env));
                 }
 
                 return returns;
             }
 
-            // TODO: ?
-            if (symbol.equals("set") || symbol.equals("define"))
+            if (symbol.equals("setq"))
             {
-                if (args.length != 2)
-                    throw new SyntaxError(symbol + " requires two and only two values");
-                if (!(args[0] instanceof PartSymbol))
-                    throw new SyntaxError(symbol + " requires a symbol");
+                if (args.length % 2 != 0)
+                    throw new SyntaxError();
 
-                return env.set(((PartSymbol) args[0]).value, eval(args[1], env));
+                PartContainer returns = new PartContainer(NIL);
+                for (int i = 0; i < args.length; i += 2)
+                {
+                    if (!(args[i] instanceof PartSymbol))
+                        throw new SyntaxError(symbol + " {var form}*");
+
+                    returns = env.set(((PartSymbol) args[i]).value, eval(container_args[i + 1], env));
+                }
+
+                return returns;
+            }
+
+            if (symbol.equals("setf"))
+            {
+                if (args.length % 2 != 0)
+                    throw new SyntaxError(symbol + " {var form}*");
+
+                PartContainer returns = new PartContainer(NIL);
+                for (int i = 0; i < args.length; i += 2)
+                {
+                    if (args[i] instanceof PartSymbol)
+                        env.set(((PartSymbol) args[i]).value, returns = eval(container_args[i + 1], env));
+                    else
+                    {
+                        PartContainer new_value = eval(container_args[i + 1], env);
+                        (returns = eval(container_args[i], env)).setPart(new_value.getPart());
+                        new_value.setPart(null); // clean up
+                    }
+                }
+                return returns;
             }
 
             if (symbol.equals("lambda"))
@@ -505,22 +526,22 @@ public class Lisp
                 if (args.length != 2 || !(args[0] instanceof PartCons))
                     throw new SyntaxError(symbol + " (var...) exp");
 
-                for (Part p : ((PartCons) args[0]).asArray())
-                    if (!(p instanceof PartSymbol))
+                PartContainer[] parameters = ((PartCons) args[0]).asArray();
+
+                for (PartContainer p : parameters)
+                    if (!(p.getPart() instanceof PartSymbol))
                         throw new SyntaxError("lambda requires symbols as parameters");
 
-                Part[] parameters = ((PartCons) args[0]).asArray();
-
-                return new PartLambda((lambda_args) ->
+                return new PartContainer(new PartLambda((lambda_args) ->
                 {
                     Environment local_env = new Environment(env);
                     for (int i = 0; i < parameters.length; i++)
                     {
-                        local_env.set(((PartSymbol) parameters[i]).value, lambda_args.length > i ? eval(lambda_args[i], local_env) : NIL);
+                        local_env.set(((PartSymbol) parameters[i].getPart()).value, lambda_args.length > i ? eval(lambda_args[i], local_env) : new PartContainer(NIL));
                     }
 
-                    return eval(args[1], local_env);
-                });
+                    return eval(container_args[1], local_env);
+                }));
             }
 
             if (symbol.equals("defun"))
@@ -528,31 +549,31 @@ public class Lisp
                 if (args.length != 3 || !(args[0] instanceof PartSymbol) || !(args[1] instanceof PartCons))
                     throw new SyntaxError(symbol + " name (symbol...) exp");
 
-                for (Part p : ((PartCons) args[1]).asArray())
-                    if (!(p instanceof PartSymbol))
+                PartContainer[] parameters = ((PartCons) args[1]).asArray();
+
+                for (PartContainer p : parameters)
+                    if (!(p.getPart() instanceof PartSymbol))
                         throw new SyntaxError("defun requires symbols as parameters");
 
-                Part[] parameters = ((PartCons) args[1]).asArray();
-
-                env.set(((PartSymbol) args[0]).value, new PartLambda((lambda_args) ->
+                env.set(((PartSymbol) args[0]).value, new PartContainer(new PartLambda((lambda_args) ->
                 {
                     Environment local_env = new Environment(env);
                     for (int i = 0; i < parameters.length; i++)
                     {
-                        local_env.set(((PartSymbol) parameters[i]).value, lambda_args.length > i ? eval(lambda_args[i], local_env) : NIL);
+                        local_env.set(((PartSymbol) parameters[i].getPart()).value, lambda_args.length > i ? eval(lambda_args[i], local_env) : new PartContainer(NIL));
                     }
 
-                    return eval(args[2], local_env);
-                }));
+                    return eval(container_args[2], local_env);
+                })));
 
-                return args[0]; // Undefined
+                return container_args[0]; // Undefined
             }
 
             if (symbol.equals("progn"))
             {
-                Part results = NIL;
+                PartContainer results = new PartContainer(NIL);
 
-                for (Part arg : args)
+                for (PartContainer arg : container_args)
                     results = eval(arg, env);
 
                 return results;
@@ -563,15 +584,15 @@ public class Lisp
                 if (args.length != 1)
                     throw new SyntaxError(symbol + " exp");
 
-                return eval(eval(args[0], env), env);
+                return eval(eval(container_args[0], env), env);
             }
 
             if (symbol.equals("list"))
             {
-                Part[] entities = new Part[args.length];
+                PartContainer[] entities = new PartContainer[args.length];
                 for (int i = 0; i < args.length; i++)
-                    entities[i] = eval(args[i], env);
-                return entities.length == 0 ? NIL : new PartCons(entities);
+                    entities[i] = eval(container_args[i], env);
+                return new PartContainer(entities.length == 0 ? NIL : new PartCons(entities));
             }
 
             if (symbol.equals("append"))
@@ -579,21 +600,21 @@ public class Lisp
                 if (args.length < 2)
                     throw new SyntaxError(symbol + " list list [list*]");
 
-                List<Part> appended = new ArrayList<Part>();
+                List<PartContainer> appended = new ArrayList<PartContainer>();
 
                 for (int i = 0; i < args.length; i++)
                 {
-                    Part element = eval(args[i], env);
-                    if (!element.equals(NIL))
-                        if (element instanceof PartCons)
-                            appended.addAll(Arrays.asList(((PartCons) element).asArray()));
+                    PartContainer element = eval(container_args[i], env);
+                    if (!element.getPart().equals(NIL))
+                        if (element.getPart() instanceof PartCons)
+                            appended.addAll(Arrays.asList(((PartCons) element.getPart()).asArray()));
                         else
                             if (i != args.length - 1)
                                 throw new SyntaxError("only the last argument in append may be a non-list");
                             else
-                                return new PartCons(appended.toArray(new Part[0]), element);
+                                return new PartContainer(new PartCons(appended.toArray(new PartContainer[0]), element));
                 }
-                return new PartCons(appended.toArray(new Part[0]));
+                return new PartContainer(new PartCons(appended.toArray(new PartContainer[0])));
             }
 
             if (nths.containsKey(symbol))
@@ -602,10 +623,10 @@ public class Lisp
                     throw new SyntaxError(symbol + " list");
 
                 Integer index = nths.get(symbol);
-                Part[] list = ((PartCons) eval(args[0], env)).asArray();
+                PartContainer[] list = ((PartCons) eval(container_args[0], env).getPart()).asArray();
 
                 if (index > list.length - 1)
-                    return NIL;
+                    return new PartContainer(NIL);
                 else
                     return list[index];
             }
@@ -619,10 +640,10 @@ public class Lisp
                     throw new SyntaxError("index must be positive integer");
 
                 Integer index = ((PartNumber) args[0]).value.value.intValue();
-                Part[] list = ((PartCons) eval(args[1], env)).asArray();
+                PartContainer[] list = ((PartCons) eval(container_args[1], env).getPart()).asArray();
 
                 if (index > list.length - 1)
-                    return NIL;
+                    return new PartContainer(NIL);
                 else
                     return list[index];
             }
@@ -631,36 +652,59 @@ public class Lisp
             {
                 if (args.length != 2)
                     throw new SyntaxError(symbol + " exp");
-                return new PartCons(eval(args[0], env), eval(args[1], env));
+                return new PartContainer(new PartCons(eval(container_args[0], env), eval(container_args[1], env)));
             }
 
             if (symbol.equals("car"))
             {
                 if (args.length != 1)
                     throw new SyntaxError(symbol + " cons");
-                Part list = eval(args[0], env);
-                if (!(list instanceof PartCons))
+                PartContainer list = eval(container_args[0], env);
+                if (!(list.getPart() instanceof PartCons))
                     throw new SyntaxError(symbol + " cons");
 
-                return ((PartCons) list).equals(NIL) ? NIL : ((PartCons) list).car;
+                return ((PartCons) list.getPart()).equals(NIL) ? new PartContainer(NIL) : ((PartCons) list.getPart()).car;
             }
 
             if (symbol.equals("cdr"))
             {
                 if (args.length != 1)
                     throw new SyntaxError(symbol + " cons");
-                Part list = eval(args[0], env);
-                if (!(list instanceof PartCons))
+                PartContainer list = eval(container_args[0], env);
+                if (!(list.getPart() instanceof PartCons))
                     throw new SyntaxError(symbol + " cons");
 
-                return ((PartCons) list).equals(NIL) ? NIL : ((PartCons) list).cdr;
+                return ((PartCons) list.getPart()).equals(NIL) ? new PartContainer(NIL) : ((PartCons) list.getPart()).cdr;
+            }
+
+            if (symbol.startsWith("c") && symbol.endsWith("r") && symbol.matches("^c[ad]+r$"))
+            {
+                if (args.length != 1)
+                    throw new SyntaxError(symbol + " cons");
+
+                PartContainer result = eval(container_args[0], env);
+
+                for (int i = symbol.length() - 2; i > 0; i--)
+                {
+                    if (result.getPart().equals(NIL))
+                        break;
+                    if (!(result.getPart() instanceof PartCons))
+                        throw new SyntaxError(symbol + ": can't get car: not a list");
+                    else
+                        if (symbol.charAt(i) == 'a')
+                            result = ((PartCons) result.getPart()).car;
+                        else
+
+                            result = ((PartCons) result.getPart()).cdr;
+                }
+                return result;
             }
 
             if (symbol.equals("typep"))
             {
                 if (args.length != 2 || !(args[1] instanceof PartSymbol))
                     throw new SyntaxError(symbol + " obj type");
-                Part obj = eval(args[0], env);
+                Part obj = eval(container_args[0], env).getPart();
 
                 boolean yes = false;
                 switch (((PartSymbol) args[1]).value)
@@ -697,23 +741,23 @@ public class Lisp
                     break;
                 }
 
-                return new PartValue<Boolean>(yes);
+                return new PartContainer(yes ? t : NIL);
             }
         }
 
-        Part[] exps = new Part[parts.length];
+        PartContainer[] exps = new PartContainer[parts.length];
         for (int i = 0; i < parts.length; i++)
-            exps[i] = eval(parts[i], env);
+            exps[i] = eval(container_parts[i], env);
 
-        if (!(exps[0] instanceof PartLambda))
+        if (!(exps[0].getPart() instanceof PartLambda))
             throw new LispException("[" + parts[0] + "] is not a function");
 
-        Lambda<Part, Part> function = ((PartLambda) exps[0]).value;
-        Part[] arguments = Arrays.copyOfRange(exps, 1, exps.length);
+        Lambda<PartContainer, PartContainer> function = ((PartLambda) exps[0].getPart()).value;
+        PartContainer[] arguments = Arrays.copyOfRange(exps, 1, exps.length);
 
         try
         {
-            return (Part) function.exec(arguments);
+            return (PartContainer) function.exec(arguments);
         }
         catch (IncorrectParameters e)
         {
@@ -727,7 +771,16 @@ public class Lisp
 
     private Part parse(String str)
     {
-        return break_to_parts(new CharactersToParseStack(str));
+        CharactersToParseStack stack = new CharactersToParseStack(str);
+        Part result;
+        do
+        {
+            result = eval(break_to_parts(stack)).getPart();
+            stack.clean();
+        }
+        while (stack.getSize() != 0);
+
+        return result;
     }
 
     /**
@@ -739,48 +792,18 @@ public class Lisp
      */
     public String run(String code)
     {
-        return eval(parse(code)).toString();
+        return parse(code).toString();
     }
 
     Part runAndReturnPart(String code)
     {
-        return eval(parse(code));
+        return parse(code);
     }
 
     public static void main(String[] args)
     {
         Lisp lisp = new Lisp();
 
-        System.out.println(lisp.run("'(+ 1 1)"));
-
-        System.out.println(lisp.run("(list 1 2)"));
-        System.out.println(lisp.run("(list (list 'a 'b) (list 'c 'd 'e) '(f . g))"));
-
-        /*
-         * System.out.println(lisp.run("(set a (lambda (a b c) (+ a b c)))"));
-         * System.out.println(lisp.run("(a 1 2 7)"));
-         */
-
-        // System.out.println(lisp.run("(eval (list 'cdr (car '((quote (a . b)) c))))"));
-
-        // System.out.println(lisp.run("(+ a 1)"));
-
-        // System.out.println(lisp.run("(car (quote (4 3 3 5 0)))"));
-        // System.out.println(lisp.run("(car ())"));
-
-        // System.out.println(lisp.eval(lisp.parse("(<= 4 4)")));
-
-        // PartFloat(5)));
-
-        /*
-         * if (true) return;
-         * 
-         * Part root = lisp.parse("(defun queue-full-p (queue)\r\n" +
-         * "  \"Return T if QUEUE is full.\"\r\n" +
-         * "  (check-type queue queue)\r\n" + "  (= (queue-get-ptr queue) \r\n"
-         * + "     (queue-next queue (queue-put-ptr queue))))");
-         * 
-         * System.out.println(root);
-         */
+        System.out.println(lisp.run("'(1 1 1 1 1)"));
     }
 }

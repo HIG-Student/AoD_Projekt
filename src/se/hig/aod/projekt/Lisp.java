@@ -57,12 +57,21 @@ public class Lisp
         }
     };
 
+    static final PartAtom t = new PartAtom()
+    {
+        @Override
+        public String asString()
+        {
+            return "t";
+        }
+    };
+
     Environment global_enviroment = new Environment()
     {
         Check isNumber = (p) -> p instanceof PartNumber;
         Check isAny = (p) -> true;
 
-        PartValue<Boolean> boolNumberOp(Part[] parts, LambdaWithTwoParameters<LispNumber, Boolean> op)
+        Part boolNumberOp(Part[] parts, LambdaWithTwoParameters<LispNumber, Boolean> op)
         {
             try
             {
@@ -74,7 +83,8 @@ public class Lisp
                 result = op.exec(((PartNumber) parts[0]).value, last = ((PartNumber) parts[1]).value);
                 for (int i = 2; i < parts.length; i++)
                     result = result && op.exec(last, last = ((PartNumber) parts[i]).value);
-                return new PartValue<Boolean>(result);
+
+                return result ? t : NIL;
             }
             catch (IncorrectParameters | ClassCastException e)
             {
@@ -156,7 +166,7 @@ public class Lisp
             set("<=", (args) -> boolNumberOp(args, (a, b) -> a.compareTo(b) <= 0));
             set("=", (args) -> boolNumberOp(args, (a, b) -> a.compareTo(b) == 0));
 
-            set("eq", (args) -> fc(args, isAny, isAny) ? new PartValue<Boolean>(args[0] == args[1]) : null);
+            set("eq", (args) -> fc(args, isAny, isAny) ? (args[0] == args[1] ? t : NIL) : null);
 
             set("max", (args) -> numOp(args, (a, b) -> a.max(b)));
             set("min", (args) -> numOp(args, (a, b) -> a.min(b)));
@@ -178,6 +188,9 @@ public class Lisp
             set("exp", (args) -> fc(args, isAny, isAny) ? numOp(args, (a, b) -> a.exp(b)) : null);
 
             env.put("nil", NIL);
+            env.put("t", t);
+            env.put("pi", new PartNumber(Math.PI));
+            env.put("e", new PartNumber(Math.E));
         }
     };
 
@@ -265,18 +278,17 @@ public class Lisp
 
             char open = 0;
             if (character == '"')
-                // ' is not string-quote, it is only '(quote exp)'
                 open = character;
 
             boolean isString = open != 0;
-
-            // TODO: Allow escaped quotes " \" "
 
             while (open != 0 || !stack.isParseEnd(stack.peak()))
             {
                 tokenBuilder.append(stack.pop());
 
-                if (open != 0 && open == stack.peak())
+                if (open != 0 && (open == stack.peak() && '\\' != stack.peak(-1))) // TODO:
+                                                                                   // case:
+                                                                                   // "foo\\"bar"
                 {
                     tokenBuilder.append(stack.pop());
                     break;
@@ -381,6 +393,16 @@ public class Lisp
                 return args[0];
             }
 
+            if (symbol.equals("print"))
+            {
+                if (args.length != 1)
+                    throw new SyntaxError("Print requires one and only one value");
+
+                System.out.println(eval(args[0], env));
+
+                return args[0];
+            }
+
             if (symbol.equals("if"))
             {
                 if (args.length == 2 || args.length == 3)
@@ -397,6 +419,37 @@ public class Lisp
                 }
                 else
                     throw new SyntaxError(symbol + " test then [else]");
+            }
+
+            if (symbol.equals("cond"))
+            {
+                if (args.length == 0)
+                    return NIL;
+
+                for (Part p : args)
+                    if (!(p instanceof PartCons))
+                        throw new SyntaxError("cond: arguments must be cons");
+
+                Part return_value = NIL;
+                for (Part cond_case : args)
+                {
+                    if (cond_case.equals(NIL))
+                        continue;
+
+                    Part[] cond_case_parts = ((PartCons) cond_case).asArray();
+
+                    // (cond (quote a) ())
+
+                    return_value = eval(cond_case_parts[0], env);
+                    if (!return_value.equals(NIL))
+                    {
+                        for (int i = 1; i < cond_case_parts.length; i++)
+                            return_value = eval(cond_case_parts[i], env);
+
+                        return return_value;
+                    }
+                }
+                return return_value;
             }
 
             /*
@@ -473,7 +526,7 @@ public class Lisp
             if (symbol.equals("defun"))
             {
                 if (args.length != 3 || !(args[0] instanceof PartSymbol) || !(args[1] instanceof PartCons))
-                    throw new SyntaxError(symbol + " name {symbol...} exp");
+                    throw new SyntaxError(symbol + " name (symbol...) exp");
 
                 for (Part p : ((PartCons) args[1]).asArray())
                     if (!(p instanceof PartSymbol))
@@ -489,10 +542,10 @@ public class Lisp
                         local_env.set(((PartSymbol) parameters[i]).value, lambda_args.length > i ? eval(lambda_args[i], local_env) : NIL);
                     }
 
-                    return eval(args[1], local_env);
+                    return eval(args[2], local_env);
                 }));
 
-                return NIL; // Unsure
+                return args[0]; // Undefined
             }
 
             if (symbol.equals("progn"))

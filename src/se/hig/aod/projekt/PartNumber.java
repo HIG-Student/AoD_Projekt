@@ -23,4 +23,9 @@ class PartNumber extends PartValue<LispNumber>
     {
         super(new LispNumber(new BigDecimal(value), true));
     }
+    
+    PartNumber(Double value)
+    {
+        super(new LispNumber(new BigDecimal(value), true));
+    }
 }

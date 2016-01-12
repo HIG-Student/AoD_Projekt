@@ -5,7 +5,6 @@ import java.util.HashMap;
 class Environment
 {
     Environment outer = null;
-    @SuppressWarnings("serial")
     HashMap<String, Part> env = new HashMap<String, Part>();
 
     public Environment()

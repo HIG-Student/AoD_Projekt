@@ -7,17 +7,22 @@ import org.junit.Test;
 @SuppressWarnings("javadoc")
 public class TestLisp
 {
-    interface LispCode
+    interface ReturningLispCode
     {
         Part run(Lisp lisp);
     }
 
-    public String runLisp(LispCode code)
+    interface LispCode
     {
-        return code.run(new Lisp()).asString();
+        void run(Lisp lisp);
     }
 
-    public Part runLispAndReturnPart(LispCode code)
+    public void runLisp(LispCode code)
+    {
+        code.run(new Lisp());
+    }
+
+    public Part runLisp(ReturningLispCode code)
     {
         return code.run(new Lisp());
     }
@@ -83,106 +88,106 @@ public class TestLisp
     @Test
     public void testGT()
     {
-        assertEquals("Can't compare int", "true", runLisp("(> 80 4)"));
-        assertEquals("Can't compare neg int", "true", runLisp("(> 4 -4)"));
-        assertEquals("Can't compare int", "false", runLisp("(> 4 80)"));
-        assertEquals("Can't compare neg int", "false", runLisp("(> -4 4)"));
+        assertEquals("Can't compare int", "t", runLisp("(> 80 4)"));
+        assertEquals("Can't compare neg int", "t", runLisp("(> 4 -4)"));
+        assertEquals("Can't compare int", "NIL", runLisp("(> 4 80)"));
+        assertEquals("Can't compare neg int", "NIL", runLisp("(> -4 4)"));
 
-        assertEquals("Can't mix", "true", runLisp("(> 80f 4)"));
-        assertEquals("Can't mix", "false", runLisp("(> 4f 80)"));
+        assertEquals("Can't mix", "t", runLisp("(> 80f 4)"));
+        assertEquals("Can't mix", "NIL", runLisp("(> 4f 80)"));
 
-        assertEquals("Can't mix", "true", runLisp("(> 80 4f)"));
-        assertEquals("Can't mix", "false", runLisp("(> 4 80f)"));
+        assertEquals("Can't mix", "t", runLisp("(> 80 4f)"));
+        assertEquals("Can't mix", "NIL", runLisp("(> 4 80f)"));
 
-        assertEquals("Can't compare float", "true", runLisp("(> 80f 4f)"));
-        assertEquals("Can't compare neg float", "true", runLisp("(> 4f -4f)"));
-        assertEquals("Can't compare float", "false", runLisp("(> 4f 80f)"));
-        assertEquals("Can't compare neg float", "false", runLisp("(> -4f 4f)"));
+        assertEquals("Can't compare float", "t", runLisp("(> 80f 4f)"));
+        assertEquals("Can't compare neg float", "t", runLisp("(> 4f -4f)"));
+        assertEquals("Can't compare float", "NIL", runLisp("(> 4f 80f)"));
+        assertEquals("Can't compare neg float", "NIL", runLisp("(> -4f 4f)"));
 
-        assertEquals("Can't compare multiple", "true", runLisp("(> 80 40 20 10 0)"));
-        assertEquals("Can't compare multiple", "false", runLisp("(> 0 10 20 40 80)"));
-        assertEquals("Can't compare multiple", "false", runLisp("(> 80 40 10 20 0)"));
-        assertEquals("Can't compare multiple", "false", runLisp("(> 80 40 20 20 10)"));
+        assertEquals("Can't compare multiple", "t", runLisp("(> 80 40 20 10 0)"));
+        assertEquals("Can't compare multiple", "NIL", runLisp("(> 0 10 20 40 80)"));
+        assertEquals("Can't compare multiple", "NIL", runLisp("(> 80 40 10 20 0)"));
+        assertEquals("Can't compare multiple", "NIL", runLisp("(> 80 40 20 20 10)"));
     }
 
     @Test
     public void testLT()
     {
-        assertEquals("Can't compare int", "false", runLisp("(< 80 4)"));
-        assertEquals("Can't compare int", "true", runLisp("(< 4 80)"));
+        assertEquals("Can't compare int", "NIL", runLisp("(< 80 4)"));
+        assertEquals("Can't compare int", "t", runLisp("(< 4 80)"));
 
-        assertEquals("Can't mix", "false", runLisp("(< 80f 4)"));
-        assertEquals("Can't mix", "true", runLisp("(< 4f 80)"));
+        assertEquals("Can't mix", "NIL", runLisp("(< 80f 4)"));
+        assertEquals("Can't mix", "t", runLisp("(< 4f 80)"));
 
-        assertEquals("Can't mix", "false", runLisp("(< 80 4f)"));
-        assertEquals("Can't mix", "true", runLisp("(< 4 80f)"));
+        assertEquals("Can't mix", "NIL", runLisp("(< 80 4f)"));
+        assertEquals("Can't mix", "t", runLisp("(< 4 80f)"));
 
-        assertEquals("Can't compare float", "false", runLisp("(< 80f 4f)"));
-        assertEquals("Can't compare float", "true", runLisp("(< 4f 80f)"));
+        assertEquals("Can't compare float", "NIL", runLisp("(< 80f 4f)"));
+        assertEquals("Can't compare float", "t", runLisp("(< 4f 80f)"));
 
-        assertEquals("Can't compare multiple", "false", runLisp("(< 80 40 20 10 0)"));
-        assertEquals("Can't compare multiple", "true", runLisp("(< 0 10 20 40 80)"));
-        assertEquals("Can't compare multiple", "false", runLisp("(< 80 40 10 20 0)"));
-        assertEquals("Can't compare multiple", "false", runLisp("(< 10 20 20 40 80)"));
+        assertEquals("Can't compare multiple", "NIL", runLisp("(< 80 40 20 10 0)"));
+        assertEquals("Can't compare multiple", "t", runLisp("(< 0 10 20 40 80)"));
+        assertEquals("Can't compare multiple", "NIL", runLisp("(< 80 40 10 20 0)"));
+        assertEquals("Can't compare multiple", "NIL", runLisp("(< 10 20 20 40 80)"));
     }
 
     @Test
     public void testGTE()
     {
-        assertEquals("Can't compare int", "true", runLisp("(>= 80 4)"));
-        assertEquals("Can't compare int", "false", runLisp("(>= 4 80)"));
+        assertEquals("Can't compare int", "t", runLisp("(>= 80 4)"));
+        assertEquals("Can't compare int", "NIL", runLisp("(>= 4 80)"));
 
-        assertEquals("Can't mix", "true", runLisp("(>= 80f 4)"));
-        assertEquals("Can't mix", "false", runLisp("(>= 4f 80)"));
+        assertEquals("Can't mix", "t", runLisp("(>= 80f 4)"));
+        assertEquals("Can't mix", "NIL", runLisp("(>= 4f 80)"));
 
-        assertEquals("Can't mix", "true", runLisp("(>= 80 4f)"));
-        assertEquals("Can't mix", "false", runLisp("(>= 4 80f)"));
+        assertEquals("Can't mix", "t", runLisp("(>= 80 4f)"));
+        assertEquals("Can't mix", "NIL", runLisp("(>= 4 80f)"));
 
-        assertEquals("Can't compare float", "true", runLisp("(>= 80f 4f)"));
-        assertEquals("Can't compare float", "false", runLisp("(>= 4f 80f)"));
+        assertEquals("Can't compare float", "t", runLisp("(>= 80f 4f)"));
+        assertEquals("Can't compare float", "NIL", runLisp("(>= 4f 80f)"));
 
-        assertEquals("Can't compare multiple", "true", runLisp("(>= 80 40 20 10 0)"));
-        assertEquals("Can't compare multiple", "false", runLisp("(>= 0 10 20 40 80)"));
-        assertEquals("Can't compare multiple", "false", runLisp("(>= 80 40 10 20 0)"));
-        assertEquals("Can't compare multiple", "true", runLisp("(>= 80 40 20 20 10)"));
+        assertEquals("Can't compare multiple", "t", runLisp("(>= 80 40 20 10 0)"));
+        assertEquals("Can't compare multiple", "NIL", runLisp("(>= 0 10 20 40 80)"));
+        assertEquals("Can't compare multiple", "NIL", runLisp("(>= 80 40 10 20 0)"));
+        assertEquals("Can't compare multiple", "t", runLisp("(>= 80 40 20 20 10)"));
     }
 
     @Test
     public void testLTE()
     {
-        assertEquals("Can't compare int", "false", runLisp("(<= 80 4)"));
-        assertEquals("Can't compare int", "true", runLisp("(<= 4 80)"));
+        assertEquals("Can't compare int", "NIL", runLisp("(<= 80 4)"));
+        assertEquals("Can't compare int", "t", runLisp("(<= 4 80)"));
 
-        assertEquals("Can't mix", "false", runLisp("(<= 80f 4)"));
-        assertEquals("Can't mix", "true", runLisp("(<= 4f 80)"));
+        assertEquals("Can't mix", "NIL", runLisp("(<= 80f 4)"));
+        assertEquals("Can't mix", "t", runLisp("(<= 4f 80)"));
 
-        assertEquals("Can't mix", "false", runLisp("(<= 80 4f)"));
-        assertEquals("Can't mix", "true", runLisp("(<= 4 80f)"));
+        assertEquals("Can't mix", "NIL", runLisp("(<= 80 4f)"));
+        assertEquals("Can't mix", "t", runLisp("(<= 4 80f)"));
 
-        assertEquals("Can't compare float", "false", runLisp("(<= 80f 4f)"));
-        assertEquals("Can't compare float", "true", runLisp("(<= 4f 80f)"));
+        assertEquals("Can't compare float", "NIL", runLisp("(<= 80f 4f)"));
+        assertEquals("Can't compare float", "t", runLisp("(<= 4f 80f)"));
 
-        assertEquals("Can't compare multiple", "false", runLisp("(<= 80 40 20 10 0)"));
-        assertEquals("Can't compare multiple", "true", runLisp("(<= 0 10 20 40 80)"));
-        assertEquals("Can't compare multiple", "false", runLisp("(<= 80 40 10 20 0)"));
-        assertEquals("Can't compare multiple", "true", runLisp("(<= 10 20 20 40 80)"));
+        assertEquals("Can't compare multiple", "NIL", runLisp("(<= 80 40 20 10 0)"));
+        assertEquals("Can't compare multiple", "t", runLisp("(<= 0 10 20 40 80)"));
+        assertEquals("Can't compare multiple", "NIL", runLisp("(<= 80 40 10 20 0)"));
+        assertEquals("Can't compare multiple", "t", runLisp("(<= 10 20 20 40 80)"));
     }
 
     @Test
     public void testEquals()
     {
-        assertEquals("Can't compare int", "true", runLisp("(= 80 80)"));
-        assertEquals("Can't compare int", "false", runLisp("(= 80 40)"));
-        assertEquals("Can't compare float", "true", runLisp("(= 80f 80f)"));
-        assertEquals("Can't compare float", "false", runLisp("(= 80f 40f)"));
-        assertEquals("Can't compare mix", "true", runLisp("(= 80 80f)"));
-        assertEquals("Can't compare mix", "true", runLisp("(= 80f 80)"));
+        assertEquals("Can't compare int", "t", runLisp("(= 80 80)"));
+        assertEquals("Can't compare int", "NIL", runLisp("(= 80 40)"));
+        assertEquals("Can't compare float", "t", runLisp("(= 80f 80f)"));
+        assertEquals("Can't compare float", "NIL", runLisp("(= 80f 40f)"));
+        assertEquals("Can't compare mix", "t", runLisp("(= 80 80f)"));
+        assertEquals("Can't compare mix", "t", runLisp("(= 80f 80)"));
 
-        assertEquals("Can't compare multiple int ", "true", runLisp("(= 80 80 80 80 80 80)"));
-        assertEquals("Can't compare multiple int ", "false", runLisp("(= 80 80 80 80 40 80)"));
-        assertEquals("Can't compare multiple float", "true", runLisp("(= 80f 80f 80f 80f 80f)"));
-        assertEquals("Can't compare multiple float", "false", runLisp("(= 80f 80f 80f 40f 80f)"));
-        assertEquals("Can't compare multiple mix", "true", runLisp("(= 80 80 80 80f 80)"));
+        assertEquals("Can't compare multiple int ", "t", runLisp("(= 80 80 80 80 80 80)"));
+        assertEquals("Can't compare multiple int ", "NIL", runLisp("(= 80 80 80 80 40 80)"));
+        assertEquals("Can't compare multiple float", "t", runLisp("(= 80f 80f 80f 80f 80f)"));
+        assertEquals("Can't compare multiple float", "NIL", runLisp("(= 80f 80f 80f 40f 80f)"));
+        assertEquals("Can't compare multiple mix", "t", runLisp("(= 80 80 80 80f 80)"));
     }
 
     // abs eq max min
@@ -200,9 +205,9 @@ public class TestLisp
     @Test
     public void testEq()
     {
-        assertEquals("Incorrect eq for int", "false", runLisp("(eq 50 50)"));
-        assertEquals("Incorrect eq for float", "false", runLisp("(eq 50f 50f)"));
-        assertEquals("Incorrect eq for string", "false", runLisp("(eq \"hi\" \"hi\")"));
+        assertEquals("Incorrect eq for int", "NIL", runLisp("(eq 50 50)"));
+        assertEquals("Incorrect eq for float", "NIL", runLisp("(eq 50f 50f)"));
+        assertEquals("Incorrect eq for string", "NIL", runLisp("(eq \"hi\" \"hi\")"));
 
         // TODO: Test for trues !
     }
@@ -280,9 +285,15 @@ public class TestLisp
     @Test
     public void testCons()
     {
+        assertEquals("incoeeect cons", "(a)", runLisp("(cons 'a '())"));
+        assertEquals("incorrect cons", "(a)", runLisp("(cons 'a nil)"));
+        assertEquals("incorrect cons", "(a b)", runLisp("(cons 'a '(b))"));
         assertEquals("Incorrect cons", "b", runLisp("(car '(b . c))"));
+        assertEquals("Incorrect cons", "b", runLisp("(car (cons 'b 'c))"));
         assertEquals("Incorrect cons", "c", runLisp("(cdr '(b . c))"));
+        assertEquals("Incorrect cons", "c", runLisp("(cdr (cons 'b 'c))"));
         assertEquals("Incorrect cons", "(a b c . d)", runLisp("(cons 'a (cons 'b (cons 'c 'd)))"));
+        assertEquals("Incorrect cons", "(a b c)", runLisp("(cons 'a (cons 'b (cons 'c nil)))"));
         assertEquals("Incorrect cons", "(1 2 3)", runLisp("(cons 1 '(2 3))"));
     }
 
@@ -301,7 +312,7 @@ public class TestLisp
     @Test
     public void testDefun()
     {
-        assertEquals("Incorrect defun", "19", runLisp("((lambda (a b) (+ a (* b 3))) 4 5)"));
+        assertEquals("Incorrect defun", "19", runLisp("(progn (defun foo (a b) (+ a (* b 3))) (foo 4 5))"));
     }
 
     @Test
@@ -338,15 +349,53 @@ public class TestLisp
     }
 
     @Test
+    public void testCond()
+    {
+        assertEquals("Incorrect cond", "NIL", runLisp("(cond)"));
+        assertEquals("Incorrect cond", "NIL", runLisp("(cond ())"));
+        assertEquals("Incorrect cond", "NIL", runLisp("(cond () ())"));
+        assertEquals("Incorrect cond", "a", runLisp("(cond ('a) ())"));
+        assertEquals("Incorrect cond", "a", runLisp("(cond () ('a))"));
+        assertEquals("Incorrect cond", "b", runLisp("(cond ('a 'b) ())"));
+        assertEquals("Incorrect cond", "b", runLisp("(cond () ('a 'b))"));
+    }
+
+    @Test
+    public void testRecursive()
+    {
+        runLisp(lisp ->
+        {
+            lisp.run("(defun facult (c) (if (= c 0) 1 (* c (facult (- c 1))))    )");
+
+            assertEquals("Incorrect cond", "1", lisp.run("(facult 0)"));
+            assertEquals("Incorrect cond", "1", lisp.run("(facult 1)"));
+            assertEquals("Incorrect cond", "2", lisp.run("(facult 2)"));
+            assertEquals("Incorrect cond", "6", lisp.run("(facult 3)"));
+            assertEquals("Incorrect cond", "3628800", lisp.run("(facult 10)"));
+        });
+
+        runLisp(lisp ->
+        {
+            lisp.run("(defun facult (c) (cond ((= c 0) 1) ((* c (facult (- c 1))))))");
+
+            assertEquals("Incorrect cond", "1", lisp.run("(facult 0)"));
+            assertEquals("Incorrect cond", "1", lisp.run("(facult 1)"));
+            assertEquals("Incorrect cond", "2", lisp.run("(facult 2)"));
+            assertEquals("Incorrect cond", "6", lisp.run("(facult 3)"));
+            assertEquals("Incorrect cond", "3628800", lisp.run("(facult 10)"));
+        });
+    }
+
+    @Test
     public void testSharedStructures()
     {
-        assertEquals("Incorrect append", "(x b goose)", runLisp(lisp ->
+        runLisp(lisp ->
         {
             lisp.run("(setf foo (list 'a 'b 'c))");
             lisp.run("(setf bar (cons 'x (cdr foo)))");
             lisp.run("(setf (third foo) 'goose)");
-            return lisp.runAndReturnPart("bar");
-        }));
+            assertEquals("Incorrect append", "(x b goose)", lisp.runAndReturnPart("bar").asString());
+        });
 
         assertEquals("Incorrect append", "(1 2 3 4)", runLisp("(append '(1 2) '(3 4))"));
         assertEquals("Incorrect append", "(1 2 3 a 5 6)", runLisp("(append '(1 2 3) '() '(a) '(5 6))"));

@@ -9,6 +9,21 @@ import se.hig.aod.projekt.Lisp.Part;
 @SuppressWarnings("javadoc")
 public class TestLisp
 {
+    interface LispCode
+    {
+        Part run(Lisp lisp);
+    }
+
+    public String runLisp(LispCode code)
+    {
+        return code.run(new Lisp()).asString();
+    }
+
+    public Part runLispAndReturnPart(LispCode code)
+    {
+        return code.run(new Lisp());
+    }
+
     public String runLisp(String code)
     {
         return new Lisp().run(code);
@@ -243,7 +258,7 @@ public class TestLisp
         assertEquals("Incorrect empty list", "NIL", runLisp("(list)"));
         assertEquals("Incorrect list", "((a b) (c d e))", runLisp("(list (list 'a 'b) (list 'c 'd 'e))"));
         assertEquals("Incorrect car list", "(3 4 a b 4)", runLisp("(list 3 4 'a (car '(b . c)) (+ 6 -2))"));
-        
+
         assertEquals("Incorrect car list", "(3 4 a b 4)", runLisp("(list 3 4 'a (car '(b . c)) (+ 6 -2))"));
         assertEquals("Incorrect car list", "((a b) (c d e))", runLisp("(list (list 'a 'b) (list 'c 'd 'e))"));
     }
@@ -263,38 +278,82 @@ public class TestLisp
         assertEquals("Incorrect empty list", "NIL", runLisp("(cdr ())"));
         assertEquals("Incorrect list", "(b c)", runLisp("(cdr '(a b c))"));
     }
-    
+
     @Test
     public void testCons()
     {
         assertEquals("Incorrect cons", "b", runLisp("(car '(b . c))"));
         assertEquals("Incorrect cons", "c", runLisp("(cdr '(b . c))"));
         assertEquals("Incorrect cons", "(a b c . d)", runLisp("(cons 'a (cons 'b (cons 'c 'd)))"));
+        assertEquals("Incorrect cons", "(1 2 3)", runLisp("(cons 1 '(2 3))"));
     }
-    
+
     @Test
     public void testSetq()
     {
         assertEquals("Incorrect setq", "(6)", runLisp("(setq x (+ 3 2 1) y (cons x nil))"));
     }
-    
+
     @Test
     public void testLambda()
     {
         assertEquals("Incorrect lambda", "19", runLisp("((lambda (a b) (+ a (* b 3))) 4 5)"));
     }
-    
+
     @Test
     public void testDefun()
     {
         assertEquals("Incorrect defun", "19", runLisp("((lambda (a b) (+ a (* b 3))) 4 5)"));
     }
-    
+
     @Test
     public void testProgn()
     {
         assertEquals("Incorrect progn", "6", runLisp("(progn (+ 1 1) (+ 2 2) (+ 3 3))"));
     }
-    
-    // ((lambda (a b) (+ a (* b 3))) 4 5) => 19 
+
+    @Test
+    public void testAppend()
+    {
+        assertEquals("Incorrect append", "(1 2 3 4)", runLisp("(append '(1 2) '(3 4))"));
+        assertEquals("Incorrect append", "(1 2 3 a 5 6)", runLisp("(append '(1 2 3) '() '(a) '(5 6))"));
+        assertEquals("Incorrect append", "(a b c . d)", runLisp("(append '(a b c) 'd)"));
+    }
+
+    @Test
+    public void testNTH()
+    {
+        assertEquals("Incorrect append", "foo", runLisp("(nth 0 '(foo bar gack))"));
+        assertEquals("Incorrect append", "bar", runLisp("(nth 1 '(foo bar gack))"));
+        assertEquals("Incorrect append", "NIL", runLisp("(nth 3 '(foo bar gack))"));
+
+        assertEquals("Incorrect append", "1", runLisp("(first '(1 2 3 4 5 6 7 8 9 10))"));
+        assertEquals("Incorrect append", "2", runLisp("(second '(1 2 3 4 5 6 7 8 9 10))"));
+        assertEquals("Incorrect append", "3", runLisp("(third '(1 2 3 4 5 6 7 8 9 10))"));
+        assertEquals("Incorrect append", "4", runLisp("(fourth '(1 2 3 4 5 6 7 8 9 10))"));
+        assertEquals("Incorrect append", "5", runLisp("(fifth '(1 2 3 4 5 6 7 8 9 10))"));
+        assertEquals("Incorrect append", "6", runLisp("(sixth '(1 2 3 4 5 6 7 8 9 10))"));
+        assertEquals("Incorrect append", "7", runLisp("(seventh '(1 2 3 4 5 6 7 8 9 10))"));
+        assertEquals("Incorrect append", "8", runLisp("(eighth '(1 2 3 4 5 6 7 8 9 10))"));
+        assertEquals("Incorrect append", "9", runLisp("(ninth '(1 2 3 4 5 6 7 8 9 10))"));
+        assertEquals("Incorrect append", "10", runLisp("(tenth '(1 2 3 4 5 6 7 8 9 10))"));
+    }
+
+    @Test
+    public void testSharedStructures()
+    {
+        assertEquals("Incorrect append", "(x b goose)", runLisp(lisp ->
+        {
+            lisp.run("(setf foo (list 'a 'b 'c))");
+            lisp.run("(setf bar (cons 'x (cdr foo)))");
+            lisp.run("(setf (third foo) 'goose)");
+            return lisp.runAndReturnPart("bar");
+        }));
+
+        assertEquals("Incorrect append", "(1 2 3 4)", runLisp("(append '(1 2) '(3 4))"));
+        assertEquals("Incorrect append", "(1 2 3 a 5 6)", runLisp("(append '(1 2 3) '() '(a) '(5 6))"));
+        assertEquals("Incorrect append", "(a b c . d)", runLisp("(append '(a b c) 'd)"));
+    }
+
+    // ((lambda (a b) (+ a (* b 3))) 4 5) => 19
 }

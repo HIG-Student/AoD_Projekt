@@ -3,10 +3,8 @@ package se.hig.aod.projekt;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 
@@ -16,13 +14,16 @@ import java.util.List;
 //T: needs testing
 //!: done!
 
-//TODO: ? deffun
+//TODO: T deffun                # block?
 //TODO: ? defstruct
-//TODO: > cons
+//TODO: ! cons
 //TODO: ? vector
 //TODO: ? array
 //TODO: ? cond
-//TODO: ? lambda asString()
+//TODO: ? block
+//TODO: ? setf
+//TODO: ? lambda asString()     # native code?
+//TODO: > REPL
 
 /**
  * A class that do magic on lisp expressions <br>
@@ -187,6 +188,16 @@ public class Lisp
         PartNumber(LispNumber value)
         {
             super(value);
+        }
+
+        PartNumber(Integer value)
+        {
+            super(new LispNumber(new BigDecimal(value), false));
+        }
+
+        PartNumber(Float value)
+        {
+            super(new LispNumber(new BigDecimal(value), true));
         }
     }
 
@@ -400,6 +411,16 @@ public class Lisp
         public int compareTo(LispNumber other)
         {
             return value.compareTo(other.value);
+        }
+
+        public int compareTo(Integer other)
+        {
+            return value.compareTo(new BigDecimal(other));
+        }
+
+        public int compareTo(Float other)
+        {
+            return value.compareTo(new BigDecimal(other));
         }
 
         @Override
@@ -838,13 +859,13 @@ public class Lisp
             do
             {
                 stack.clean();
-                
+
                 if (stack.nextIs(')'))
                 {
                     stack.pop();
                     return new PartCons(parts.toArray(new Part[0]));
                 }
-                
+
                 if (stack.nextIs('.'))
                 {
                     stack.pop();
@@ -952,6 +973,23 @@ public class Lisp
 
         {
             add("quote", (args) -> is(args[0]));
+        }
+    };
+
+    @SuppressWarnings("serial")
+    HashMap<String, Integer> nths = new HashMap<String, Integer>()
+    {
+        {
+            put("first", 0);
+            put("second", 1);
+            put("third", 2);
+            put("fourth", 3);
+            put("fifth", 4);
+            put("sixth", 5);
+            put("seventh", 6);
+            put("eighth", 7);
+            put("ninth", 8);
+            put("tenth", 9);
         }
     };
 
@@ -1122,6 +1160,59 @@ public class Lisp
                 for (int i = 0; i < args.length; i++)
                     entities[i] = eval(args[i], env);
                 return entities.length == 0 ? NIL : new PartCons(entities);
+            }
+
+            if (symbol.equals("append"))
+            {
+                if (args.length < 2)
+                    throw new SyntaxError(symbol + " list list [list*]");
+
+                List<Part> appended = new ArrayList<Part>();
+
+                for (int i = 0; i < args.length; i++)
+                {
+                    Part element = eval(args[i], env);
+                    if (!element.equals(NIL))
+                        if (element instanceof PartCons)
+                            appended.addAll(Arrays.asList(((PartCons) element).asArray()));
+                        else
+                            if (i != args.length - 1)
+                                throw new SyntaxError("only the last argument in append may be a non-list");
+                            else
+                                return new PartCons(appended.toArray(new Part[0]), element);
+                }
+                return new PartCons(appended.toArray(new Part[0]));
+            }
+
+            if (nths.containsKey(symbol))
+            {
+                if (args.length != 1)
+                    throw new SyntaxError(symbol + " list");
+
+                Integer index = nths.get(symbol);
+                Part[] list = ((PartCons) eval(args[0], env)).asArray();
+
+                if (index > list.length - 1)
+                    return NIL;
+                else
+                    return list[index];
+            }
+
+            if (symbol.equals("nth") || nths.containsKey(symbol))
+            {
+                if (args.length != 2)
+                    throw new SyntaxError(symbol + " uint list");
+
+                if (!(args[0] instanceof PartNumber) || ((PartNumber) args[0]).value.isfloat || ((PartNumber) args[0]).value.compareTo(0) < 0)
+                    throw new SyntaxError("index must be positive integer");
+
+                Integer index = ((PartNumber) args[0]).value.value.intValue();
+                Part[] list = ((PartCons) eval(args[1], env)).asArray();
+
+                if (index > list.length - 1)
+                    return NIL;
+                else
+                    return list[index];
             }
 
             if (symbol.equals("cons"))

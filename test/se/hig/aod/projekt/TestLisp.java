@@ -4,8 +4,6 @@ import static org.junit.Assert.*;
 
 import org.junit.Test;
 
-import se.hig.aod.projekt.Lisp.Part;
-
 @SuppressWarnings("javadoc")
 public class TestLisp
 {

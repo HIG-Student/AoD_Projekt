@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map.Entry;
 
 //Legend:
 //?: not started
@@ -18,11 +19,13 @@ import java.util.List;
 //TODO: ? array
 //TODO: T cond
 //TODO: ? block
-//TODO: ? setf
-//TODO: ? caadadadadr
+//TODO: T set,setq,setf
+//TODO: T caadadadadr
 //TODO: ? lambda asString()     # native code?
 //TODO: T REPL
 //TODO: ? Errors
+//TODO: ? scopes
+//TODO: > let
 
 /**
  * A class that do magic on lisp expressions <br>
@@ -380,6 +383,13 @@ public class Lisp
             PartContainer[] container_args = container_parts.length == 0 ? new PartContainer[0] : Arrays.copyOfRange(container_parts, 1, container_parts.length);
             Part[] args = PartContainer.asParts(container_args);
 
+            if (symbol.equals("nil"))
+            {
+                if (args.length != 0)
+                    throw new SyntaxError("nil can't have any value");
+                return new PartContainer(NIL);
+            }
+
             if (symbol.equals("quote"))
             {
                 if (args.length != 1)
@@ -446,26 +456,84 @@ public class Lisp
                 return return_value;
             }
 
-            /*
-             * 
-             * setq {var form}
-             * 
-             * The special form (setq var1 form1 var2 form2 ...) is the ``simple
-             * variable assignment statement'' of Lisp. First form1 is evaluated
-             * and the result is stored in the variable var1, then form2 is
-             * evaluated and the result stored in var2, and so forth. The
-             * variables are represented as symbols, of course, and are
-             * interpreted as referring to static or dynamic instances according
-             * to the usual rules. Therefore setq may be used for assignment of
-             * both lexical and special variables.
-             * 
-             * setq returns the last value assigned, that is, the result of the
-             * evaluation of its last argument. As a boundary case, the form
-             * (setq) is legal and returns nil. There must be an even number of
-             * argument forms. For example, in
-             */
-
             // TODO: define
+
+            if (symbol.equals("let"))
+            {
+                if (args.length == 0)
+                    throw new SyntaxError("let ({var | (var [init])}*) {form}*)");
+
+                if (!(args[0] instanceof PartCons))
+                    throw new SyntaxError("let need a cons as first parameter");
+
+                Environment local_env = new Environment(env);
+
+                PartContainer[] container_parms = ((PartCons) args[0]).asArray();
+                Part[] params = PartContainer.asParts(container_parms);
+
+                HashMap<String, PartContainer> temp_env = new HashMap<String, PartContainer>();
+
+                for (int i = 0; i < params.length; i++)
+                {
+                    Part param = params[i];
+
+                    if (param instanceof PartSymbol)
+                        temp_env.put(((PartSymbol) param).value, new PartContainer(NIL));
+                    else
+                        if (param instanceof PartCons && ((PartCons) param).car.getPart() instanceof PartSymbol)
+                            temp_env.put(((PartSymbol) ((PartCons) param).car.getPart()).value, eval(((PartCons) param).cdr, local_env));
+                        else
+                            throw new SyntaxError("let have incorrect parameter list");
+                }
+
+                for (Entry<String, PartContainer> e : temp_env.entrySet())
+                {
+                    local_env.set(e.getKey(), e.getValue());
+                }
+
+                PartContainer returns = new PartContainer(NIL);
+                for (int i = 1; i < args.length; i++)
+                {
+                    returns = eval(container_args[i], local_env);
+                }
+
+                return returns;
+            }
+
+            if (symbol.equals("let*"))
+            {
+                if (args.length == 0)
+                    throw new SyntaxError("let* ({var | (var [init])}*) {form}*)");
+
+                if (!(args[0] instanceof PartCons))
+                    throw new SyntaxError("let* need a cons as first parameter");
+
+                Environment local_env = new Environment(env);
+
+                PartContainer[] container_parms = ((PartCons) args[0]).asArray();
+                Part[] params = PartContainer.asParts(container_parms);
+
+                for (int i = 0; i < params.length; i++)
+                {
+                    Part param = params[i];
+
+                    if (param instanceof PartSymbol)
+                        local_env.set(((PartSymbol) param).value, new PartContainer(NIL));
+                    else
+                        if (param instanceof PartCons && ((PartCons) param).car.getPart() instanceof PartSymbol)
+                            local_env.set(((PartSymbol) ((PartCons) param).car.getPart()).value, eval(((PartCons) param).cdr, local_env));
+                        else
+                            throw new SyntaxError("let* have incorrect parameter list");
+                }
+
+                PartContainer returns = new PartContainer(NIL);
+                for (int i = 1; i < args.length; i++)
+                {
+                    returns = eval(container_args[i], local_env);
+                }
+
+                return returns;
+            }
 
             if (symbol.equals("set"))
             {
@@ -475,10 +543,11 @@ public class Lisp
                 PartContainer returns = new PartContainer(NIL);
                 for (int i = 0; i < args.length; i += 2)
                 {
-                    if (!(args[i] instanceof PartSymbol))
+                    Part key = eval((container_args[i]), env).getPart();
+                    if (!(key instanceof PartSymbol))
                         throw new SyntaxError(symbol + " {var form}*");
 
-                    returns = env.set(((PartSymbol) eval((container_args[i]), env).getPart()).value, eval(container_args[i + 1], env));
+                    returns = env.set(((PartSymbol) key).value, eval(container_args[i + 1], env));
                 }
 
                 return returns;
@@ -710,7 +779,7 @@ public class Lisp
                 switch (((PartSymbol) args[1]).value)
                 {
                 case "null":
-                    yes = obj instanceof PartCons && ((PartCons) obj).equals(NIL);
+                    yes = ((PartCons) obj).equals(NIL);
                     break;
                 case "atom":
                     yes = !(obj instanceof PartCons) || ((PartCons) obj).equals(NIL);

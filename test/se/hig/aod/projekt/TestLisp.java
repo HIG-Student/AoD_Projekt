@@ -324,12 +324,6 @@ public class TestLisp
     }
 
     @Test
-    public void testSetq()
-    {
-        assertEquals("Incorrect setq", "(6)", runLisp("(setq x (+ 3 2 1) y (cons x nil))"));
-    }
-
-    @Test
     public void testLambda()
     {
         assertEquals("Incorrect lambda", "19", runLisp("((lambda (a b) (+ a (* b 3))) 4 5)"));
@@ -426,6 +420,39 @@ public class TestLisp
         assertEquals("Incorrect append", "(1 2 3 4)", runLisp("(append '(1 2) '(3 4))"));
         assertEquals("Incorrect append", "(1 2 3 a 5 6)", runLisp("(append '(1 2 3) '() '(a) '(5 6))"));
         assertEquals("Incorrect append", "(a b c . d)", runLisp("(append '(a b c) 'd)"));
+    }
+
+    @Test
+    public void testSet()
+    {
+        assertEquals("Incorrect set", "NIL", runLisp("(set)"));
+        assertEquals("Incorrect set", "(6)", runLisp("(set 'x (+ 3 2 1) 'y (cons x nil))"));
+    }
+
+    @Test
+    public void testSetq()
+    {
+        assertEquals("Incorrect setq", "NIL", runLisp("(setq)"));
+        assertEquals("Incorrect setq", "(6)", runLisp("(setq x (+ 3 2 1) y (cons x nil))"));
+    }
+
+    @Test
+    public void testSetf()
+    {
+        assertEquals("Incorrect setf", "NIL", runLisp("(setf)"));
+        assertEquals("Incorrect setf", "(6)", runLisp("(setf x (+ 3 2 1) y (cons x nil))"));
+    }
+
+    @Test
+    public void testLet()
+    {
+        runLisp(lisp ->
+        {
+            lisp.run("(let (a (b 'c) (d 5)) (setq a! a b! b c! c d! d))");
+
+            assertEquals("Incorrect let", "5", lisp.run("d!"));
+            assertEquals("Incorrect let", "(x b goose)", lisp.run("bar"));
+        });
     }
 
     // ((lambda (a b) (+ a (* b 3))) 4 5) => 19

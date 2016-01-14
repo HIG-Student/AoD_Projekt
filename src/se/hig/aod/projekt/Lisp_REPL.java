@@ -22,6 +22,15 @@ public class Lisp_REPL
         System.out.println("");
         System.out.print("> ");
         Lisp lisp = new Lisp();
+        
+        // lisp.run("(defun loop (n f) ((defun sub_loop (i) (if (> i 0) (progn (print i) (eval f) (sub_loop (- i 1))))) n))");
+        
+        lisp.run("(setq i 0)");
+        lisp.run("(defun loop (n f) (while (> (setq n (- n 1)) 0) (eval f)))");
+        lisp.run("(loop 5 ''(setq i (+ i 1)))");
+        
+        //lisp.run("(defun loop (n f) (if (> n 0) (progn (print (* n 10)) (print (eval f)) (loop (- n 1) f) (print (* n 100)) ) n))");
+        //lisp.run("(loop 4 '(print n))");
 
         try (Scanner scan = new Scanner(System.in))
         {

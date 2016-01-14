@@ -37,6 +37,13 @@ public class TestLisp
         return new Lisp().runAndReturnPart(code);
     }
 
+    
+    @Test
+    public void testComments()
+    {
+        assertEquals("Comments corrupt", "2", runLisp("(+ 1 1) ; should be 2"));
+        assertEquals("Comments corrupt", "6", runLisp("(+ 1 1) #| (+ 2 2) |# (+ 3 3)"));
+    }
     @Test
     public void testMultiple()
     {
@@ -405,6 +412,20 @@ public class TestLisp
             assertEquals("Incorrect cond", "3628800", lisp.run("(facult 10)"));
         });
     }
+    
+    @Test
+    public void testWhile()
+    {
+        runLisp(lisp ->
+        {
+            lisp.run("(setq a (list 1 2 3 4 5 6))");
+            lisp.run("(setq b 0)");
+            lisp.run("(while (progn (setq b (+ b 1)) (setq a (cdr a))) t)");
+
+            assertEquals("Incorrect while", "NIL", lisp.run("a"));
+            assertEquals("Incorrect while", "6", lisp.run("b"));
+        });
+    }
 
     @Test
     public void testSharedStructures()
@@ -467,7 +488,7 @@ public class TestLisp
         {
             assertEquals("Incorrect let", "NIL", lisp.run("(setq o nil)"));
             assertEquals("Incorrect let", "top", lisp.run("(setq a 'top)"));
-            assertEquals("Incorrect let", "dummy-function", lisp.run("(defun dummy-function () a)"));
+            assertEquals("Incorrect let", "[lambda]", lisp.run("(defun dummy-function () a)"));
             
             assertEquals("Incorrect let", "(inside top top)", lisp.run("(let ((a 'inside) (b a))\r\n" +
                     "                                                       (setq o (list a b (dummy-function))))"));

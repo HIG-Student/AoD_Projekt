@@ -105,23 +105,24 @@ class CharactersToParseStack
 
         if (character == ';')
         {
-            while (!isStringBreak(character = pop()))
+            while (getSize() != 0 && !isStringBreak(character = pop()))
             {
             }
             clean();
             return true;
         }
 
-        if (character == '#' && peak(1) == '|')
+        if (character == '#' && getSize() != 0 && peak(1) == '|')
         {
-            while ((character = pop()) != '#')
+            character = pop();
+            character = pop();
+            
+            while ((character = pop()) != '#'&& peak(-1) != '|')
             {
                 if (getSize() == 0)
                     throw new SyntaxError("Unclosed multiline-comment!");
-
-                if (character == '#' && peak(-1) == '|')
-                    break;
             }
+            character = pop();
             clean();
             return true;
         }

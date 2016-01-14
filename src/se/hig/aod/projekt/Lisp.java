@@ -16,14 +16,15 @@ import java.util.Map.Entry;
 //TODO: ? defstruct
 //TODO: ! cons
 //TODO: ? vector
+//TODO: ? class
 //TODO: ? array
 //TODO: T cond
 //TODO: ? block
 //TODO: ! set,setq,setf
 //TODO: ! caadadadadr
 //TODO: ? lambda asString()     # native code?
-//TODO: T REPL
-//TODO: ? Errors
+//TODO: ! REPL
+//TODO: ? Better errors
 //TODO: ? scopes
 //TODO: ! let
 
@@ -318,22 +319,6 @@ public class Lisp
         return eval(part, global_enviroment);
     }
 
-    /*
-     * interface FunctionBody { PartContainer run(Part[] args); }
-     * 
-     * 
-     * @SuppressWarnings("serial") HashMap<String, FunctionBody> functions = new
-     * HashMap<String, FunctionBody>() {
-     * 
-     * @SuppressWarnings("unchecked") public <T> PartValue<T> is(PartContainer
-     * part) { try { return (PartValue<T>) part; } catch (ClassCastException e)
-     * { throw new IncorrectParameters(); } }
-     * 
-     * public void add(String name, FunctionBody body) { put(name, body); }
-     * 
-     * { add("quote", (args) -> is(args[0])); } };
-     */
-
     @SuppressWarnings("serial")
     HashMap<String, Integer> nths = new HashMap<String, Integer>()
     {
@@ -393,9 +378,6 @@ public class Lisp
 
             if (symbol.equals("print"))
             {
-                if (args.length != 1)
-                    throw new SyntaxError("print requires one and only one value");
-
                 PartContainer result = new PartContainer(NIL);
 
                 for (PartContainer cont : container_args)
@@ -416,12 +398,16 @@ public class Lisp
             {
                 if (args.length == 2 || args.length == 3)
                 {
-                    if (eval(container_args[0], env).getPart().equals(NIL)) // is_false
+                    PartContainer bool = eval(container_args[0], env);
+
+                    if (bool.getPart().equals(NIL)) // is_false
                     {
                         if (args.length == 3) // else
                         {
                             return eval(container_args[2], env);
                         }
+                        else
+                            return bool;
                     }
                     else
                         return eval(container_args[1], env);
@@ -561,7 +547,7 @@ public class Lisp
             if (symbol.equals("setq"))
             {
                 if (args.length % 2 != 0)
-                    throw new SyntaxError();
+                    throw new SyntaxError(symbol + " {var form}*");
 
                 PartContainer returns = new PartContainer(NIL);
                 for (int i = 0; i < args.length; i += 2)
@@ -632,7 +618,9 @@ public class Lisp
                     if (!(p.getPart() instanceof PartSymbol))
                         throw new SyntaxError("defun requires symbols as parameters");
 
-                env.set(((PartSymbol) args[0]).value, new PartContainer(new PartLambda((lambda_args) ->
+                PartContainer func;
+
+                env.set(((PartSymbol) args[0]).value, func = new PartContainer(new PartLambda((lambda_args) ->
                 {
                     Environment local_env = new Environment(env);
                     for (int i = 0; i < parameters.length; i++)
@@ -643,7 +631,7 @@ public class Lisp
                     return eval(container_args[2], local_env);
                 })));
 
-                return container_args[0]; // Undefined
+                return func; // container_args[0]; // Undefined
             }
 
             if (symbol.equals("progn"))
@@ -662,6 +650,19 @@ public class Lisp
                     throw new SyntaxError(symbol + " exp");
 
                 return eval(eval(container_args[0], env), env);
+            }
+
+            if (symbol.equals("while"))
+            {
+                if (args.length != 2)
+                    throw new SyntaxError(symbol + " cond exp");
+
+                PartContainer result = new PartContainer(NIL);
+                PartContainer cond = container_args[0];
+                while (!eval(cond, env).getPart().equals(NIL))
+                    result = eval(container_args[1], env);
+
+                return result;
             }
 
             if (symbol.equals("list"))
@@ -728,7 +729,7 @@ public class Lisp
             if (symbol.equals("cons"))
             {
                 if (args.length != 2)
-                    throw new SyntaxError(symbol + " exp");
+                    throw new SyntaxError(symbol + " exp exp");
                 return new PartContainer(new PartCons(eval(container_args[0], env), eval(container_args[1], env)));
             }
 

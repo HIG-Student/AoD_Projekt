@@ -28,6 +28,11 @@ class Environment
                 throw new NoSuchVariable("Variable [" + key + "] is null!");
     }
 
+    public boolean contains(String key)
+    {
+        return env.containsKey(key) || (outer != null && outer.contains(key));
+    }
+
     public PartContainer set(String key, PartContainer entry)
     {
         env.put(key, entry);

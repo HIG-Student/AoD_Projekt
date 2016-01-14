@@ -441,6 +441,23 @@ public class TestLisp
     {
         assertEquals("Incorrect setf", "NIL", runLisp("(setf)"));
         assertEquals("Incorrect setf", "(6)", runLisp("(setf x (+ 3 2 1) y (cons x nil))"));
+
+        runLisp(lisp ->
+        {
+            assertEquals("Incorrect let", "(1 2 3)", lisp.run("(setq x (cons 'a 'b) y (list 1 2 3))"));
+            assertEquals("Incorrect let", "(1 x 3)", lisp.run("(setf (car x) 'x (cadr y) (car x) (cdr x) y)"));
+            assertEquals("Incorrect let", "(x 1 x 3)", lisp.run("x"));
+            assertEquals("Incorrect let", "(1 x 3)", lisp.run("y"));
+
+            /*
+             * assertEquals("Incorrect let",
+             * "(1 2 3)",lisp.run("(setq x (cons 'a 'b) y (list 1 2 3))"));
+             * assertEquals("Incorrect let", "NIL",
+             * lisp.run("(psetf (car x) 'x (cadr y) (car x) (cdr x) y)"));
+             * assertEquals("Incorrect let", "(x 1 a 3)", lisp.run("x"));
+             * assertEquals("Incorrect let", "(1 a 3)", lisp.run("y"));
+             */
+        });
     }
 
     @Test
@@ -448,12 +465,21 @@ public class TestLisp
     {
         runLisp(lisp ->
         {
-            lisp.run("(let (a (b 'c) (d 5)) (setq a! a b! b c! c d! d))");
-
-            assertEquals("Incorrect let", "5", lisp.run("d!"));
-            assertEquals("Incorrect let", "(x b goose)", lisp.run("bar"));
+            assertEquals("Incorrect let", "NIL", lisp.run("(setq o nil)"));
+            assertEquals("Incorrect let", "top", lisp.run("(setq a 'top)"));
+            assertEquals("Incorrect let", "dummy-function", lisp.run("(defun dummy-function () a)"));
+            
+            assertEquals("Incorrect let", "(inside top top)", lisp.run("(let ((a 'inside) (b a))\r\n" +
+                    "                                                       (setq o (list a b (dummy-function))))"));
+            
+            assertEquals("Incorrect let", "(inside inside top)", lisp.run("(let* ((a 'inside) (b a))\r\n" +
+                    "                                                       (setq o (list a b (dummy-function))))"));
+            
+            /*   Needs (declare (special a))
+            assertEquals("Incorrect let", "(inside top inside)", lisp.run("(let ((a 'inside) (b a)) (declare (special a)) \r\n" + 
+                    "                                                       (setq o (list a b (dummy-function))))"));
+            */
+            
         });
     }
-
-    // ((lambda (a b) (+ a (* b 3))) 4 5) => 19
 }

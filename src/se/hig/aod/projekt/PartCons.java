@@ -79,7 +79,7 @@ class PartCons extends Part
         builder.append("(");
 
         builder.append(array[0].car.getPart().asString());
-
+        
         for (int i = 1; i < array.length; i++)
         {
             builder.append(" ");

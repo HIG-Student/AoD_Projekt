@@ -12,20 +12,20 @@ import java.util.Map.Entry;
 //T: needs testing
 //!: done!
 
-//TODO: T deffun                # block?
+//TODO: ! deffun                # block?
 //TODO: ? defstruct
 //TODO: ! cons
 //TODO: ? vector
 //TODO: ? array
 //TODO: T cond
 //TODO: ? block
-//TODO: T set,setq,setf
-//TODO: T caadadadadr
+//TODO: ! set,setq,setf
+//TODO: ! caadadadadr
 //TODO: ? lambda asString()     # native code?
 //TODO: T REPL
 //TODO: ? Errors
 //TODO: ? scopes
-//TODO: > let
+//TODO: ! let
 
 /**
  * A class that do magic on lisp expressions <br>
@@ -71,7 +71,6 @@ public class Lisp
 
     Environment global_enviroment = new Environment()
     {
-        Check isNumber = (p) -> p.getPart() instanceof PartNumber;
         Check isAny = (p) -> true;
 
         PartContainer boolNumberOp(PartContainer[] parts, LambdaWithTwoParameters<LispNumber, Boolean> op)
@@ -146,11 +145,6 @@ public class Lisp
             if (!c(args, checks))
                 throw new IncorrectParameters();
             return true;
-        }
-
-        PartContainer e()
-        {
-            throw new IncorrectParameters();
         }
 
         void set(String key, Lambda<PartContainer, PartContainer> lambda)
@@ -400,11 +394,22 @@ public class Lisp
             if (symbol.equals("print"))
             {
                 if (args.length != 1)
-                    throw new SyntaxError("Print requires one and only one value");
+                    throw new SyntaxError("print requires one and only one value");
 
-                System.out.println(eval(container_args[0], env));
+                PartContainer result = new PartContainer(NIL);
 
-                return container_args[0];
+                for (PartContainer cont : container_args)
+                    System.out.println((result = eval(cont, env)).asString());
+
+                return result;
+            }
+
+            if (symbol.equals("text"))
+            {
+                if (args.length != 1)
+                    throw new SyntaxError("text requires one and only one value");
+
+                return new PartContainer(new PartString(eval(container_args[0], env).getPart().asString()));
             }
 
             if (symbol.equals("if"))
@@ -481,7 +486,7 @@ public class Lisp
                         temp_env.put(((PartSymbol) param).value, new PartContainer(NIL));
                     else
                         if (param instanceof PartCons && ((PartCons) param).car.getPart() instanceof PartSymbol)
-                            temp_env.put(((PartSymbol) ((PartCons) param).car.getPart()).value, eval(((PartCons) param).cdr, local_env));
+                            temp_env.put(((PartSymbol) ((PartCons) param).car.getPart()).value, eval(((PartCons) ((PartCons) param).cdr.getPart()).car, local_env));
                         else
                             throw new SyntaxError("let have incorrect parameter list");
                 }
@@ -503,10 +508,10 @@ public class Lisp
             if (symbol.equals("let*"))
             {
                 if (args.length == 0)
-                    throw new SyntaxError("let* ({var | (var [init])}*) {form}*)");
+                    throw new SyntaxError("let ({var | (var [init])}*) {form}*)");
 
                 if (!(args[0] instanceof PartCons))
-                    throw new SyntaxError("let* need a cons as first parameter");
+                    throw new SyntaxError("let need a cons as first parameter");
 
                 Environment local_env = new Environment(env);
 
@@ -521,9 +526,9 @@ public class Lisp
                         local_env.set(((PartSymbol) param).value, new PartContainer(NIL));
                     else
                         if (param instanceof PartCons && ((PartCons) param).car.getPart() instanceof PartSymbol)
-                            local_env.set(((PartSymbol) ((PartCons) param).car.getPart()).value, eval(((PartCons) param).cdr, local_env));
+                            local_env.set(((PartSymbol) ((PartCons) param).car.getPart()).value, eval(((PartCons) ((PartCons) param).cdr.getPart()).car, local_env));
                         else
-                            throw new SyntaxError("let* have incorrect parameter list");
+                            throw new SyntaxError("let have incorrect parameter list");
                 }
 
                 PartContainer returns = new PartContainer(NIL);
@@ -578,13 +583,16 @@ public class Lisp
                 PartContainer returns = new PartContainer(NIL);
                 for (int i = 0; i < args.length; i += 2)
                 {
+                    PartContainer new_value = eval(container_args[i + 1], env);
+
                     if (args[i] instanceof PartSymbol)
-                        env.set(((PartSymbol) args[i]).value, returns = eval(container_args[i + 1], env));
+                        if (env.contains(((PartSymbol) args[i]).value))
+                            (returns = env.get(((PartSymbol) args[i]).value)).setPart(new_value.getPart());
+                        else
+                            env.set(((PartSymbol) args[i]).value, returns = eval(container_args[i + 1], env));
                     else
                     {
-                        PartContainer new_value = eval(container_args[i + 1], env);
                         (returns = eval(container_args[i], env)).setPart(new_value.getPart());
-                        new_value.setPart(null); // clean up
                     }
                 }
                 return returns;
@@ -867,12 +875,5 @@ public class Lisp
     Part runAndReturnPart(String code)
     {
         return parse(code);
-    }
-
-    public static void main(String[] args)
-    {
-        Lisp lisp = new Lisp();
-
-        System.out.println(lisp.run("'(1 1 1 1 1)"));
     }
 }
